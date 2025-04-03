@@ -38,6 +38,35 @@ The bot can automatically respond to messages in designated channels without req
 # Polski
 
 ## Wprowadzenie
+Gemini 1.5 AI Discord Bot to inteligentny asystent oparty na modelu Gemini 1.5 AI od Google. Bot rozumie kontekst, pamięta rozmowy i udziela pomocnych odpowiedzi zarówno po angielsku, jak i po polsku.
+
+## Podstawowe Komendy
+- `!ask <pytanie>` - Zadaj botowi dowolne pytanie
+- `!about` - Wyświetl informacje o bocie
+- `!help` lub `!pomoc` - Pokaż wszystkie dostępne komendy
+
+## Zarządzanie Pamięcią
+- `!memory` - Zobacz ustawienia pamięci rozmowy
+- `!clear` - Wyczyść historię rozmowy
+- `!tag add <tag1> <tag2>...` - Dodaj tagi do rozmowy
+- `!tag remove <tag1> <tag2>...` - Usuń tagi
+- `!title <tytuł>` - Ustaw tytuł dla rozmowy
+- `!archive` - Zarchiwizuj obecną rozmowę
+- `!listconvo` - Lista aktywnych rozmów
+- `!listconvo true` - Lista wszystkich rozmów (włącznie z zarchiwizowanymi)
+
+## Ustawienia Rozmowy
+Użyj `!settings <ustawienie> <wartość>` aby dostosować:
+- `personality`: balanced/professional/creative/friendly/concise (zbalansowany/profesjonalny/kreatywny/przyjazny/zwięzły)
+- `default_mood`: thoughtful/cheerful/curious/playful/professional (refleksyjny/wesoły/ciekawy/zabawny/profesjonalny)
+- `max_memory_messages`: 10-100
+- `memory_expiry_days`: 1-30
+- `auto_title_conversations`: true/false (prawda/fałsz)
+
+## Funkcja Auto-Odpowiedzi
+Bot może automatycznie odpowiadać na wiadomości w wyznaczonych kanałach bez potrzeby oznaczania (@) lub odpowiadania. Ta funkcja jest zarządzana przez administratorów serwera.
+
+## Wprowadzenie
 Gemini 1.5 AI Discord Bot to inteligentny asystent oparty na modelu AI Gemini 1.5 od Google. Bot rozumie kontekst, pamięta rozmowy i może odpowiadać zarówno po angielsku, jak i po polsku.
 
 ## Podstawowe Komendy
