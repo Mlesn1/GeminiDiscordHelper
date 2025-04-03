@@ -401,21 +401,38 @@ class AICommands(commands.Cog, name="AI Commands"):
                 )
             
         elif section.lower() == "auto":
-            embed = discord.Embed(
-                title="Auto-Response System",
-                description="Understanding automatic responses",
-                color=discord.Color.teal()
-            )
-            embed.add_field(
-                name="🔄 Auto-Response Features",
-                value=(
-                    "• Responds automatically in designated channels\n"
-                    "• No need for mentions or commands\n"
-                    "• Customizable cooldown periods\n"
-                    "• Prefix-based message filtering"
-                ),
-                inline=False
-            )
+            if language == "pl":
+                embed = discord.Embed(
+                    title="System Auto-Odpowiedzi",
+                    description="Zrozumienie automatycznych odpowiedzi",
+                    color=discord.Color.teal()
+                )
+                embed.add_field(
+                    name="🔄 Funkcje Auto-Odpowiedzi",
+                    value=(
+                        "• Automatyczne odpowiedzi w wyznaczonych kanałach\n"
+                        "• Nie wymaga oznaczania ani komend\n"
+                        "• Konfigurowalne okresy odnowienia\n"
+                        "• Filtrowanie wiadomości na podstawie prefiksów"
+                    ),
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="Auto-Response System",
+                    description="Understanding automatic responses",
+                    color=discord.Color.teal()
+                )
+                embed.add_field(
+                    name="🔄 Auto-Response Features",
+                    value=(
+                        "• Responds automatically in designated channels\n"
+                        "• No need for mentions or commands\n"
+                        "• Customizable cooldown periods\n"
+                        "• Prefix-based message filtering"
+                    ),
+                    inline=False
+                )
         
         embed.set_footer(text="For more help, type !help or contact a server administrator")
         await ctx.send(embed=embed)
