@@ -1,1 +1,1 @@
-python -c "import discord_bot"
+python discord_bot_runner.py

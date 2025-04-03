@@ -1,54 +1,27 @@
 #!/usr/bin/env python3
 """
-Dedicated entry point for running ONLY the Discord bot without the Flask web interface.
-This file is specifically designed for the run_discord_bot workflow.
+Standalone Discord bot without any Flask components.
+This script is specifically designed for running only the Discord bot without any web interface.
 """
 import os
 import sys
 import logging
-import threading
-import importlib.util
-from types import ModuleType
+import discord
+from dotenv import load_dotenv
 
-# Mock Flask to prevent it from being imported by other modules
-class MockFlask:
-    def __init__(self, *args, **kwargs):
-        pass
-        
-    def route(self, *args, **kwargs):
-        def decorator(f):
-            return f
-        return decorator
-        
-    def run(self, *args, **kwargs):
-        pass
-        
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
-
-class MockModule:
-    Flask = MockFlask
-    
-# Install the mock
-sys.modules['flask'] = MockModule()
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 from utils.logger import setup_logger
 setup_logger()
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
-
 from bot import GeminiBot
-import discord
 
 def start_bot():
-    """
-    Initialize and start the Discord bot (no Flask)
-    """
-    logger.info("Starting Discord bot in standalone mode...")
+    """Start the Discord bot without Flask"""
+    logger.info("Starting Discord bot standalone mode...")
     
     # Get Discord token from environment variables
     token = os.getenv("DISCORD_TOKEN")
@@ -56,9 +29,10 @@ def start_bot():
         logger.critical("DISCORD_TOKEN not found in environment variables. Bot cannot start.")
         return
     
-    try:
+    try:    
         # Initialize and run the bot
         bot = GeminiBot()
+        # Add retry strategy for handling rate limits
         bot.run(token, reconnect=True)
     except discord.errors.HTTPException as e:
         if e.status == 429:  # Rate limit error
@@ -72,4 +46,5 @@ def start_bot():
         logger.error(f"Error starting bot: {e}")
 
 if __name__ == "__main__":
+    # This script only runs the Discord bot
     start_bot()
