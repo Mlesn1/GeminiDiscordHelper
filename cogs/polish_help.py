@@ -44,8 +44,10 @@ class PolishHelpCommand(commands.DefaultHelpCommand):
             inline=False
         )
         
-        # Iterate through cogs and add their commands
-        filtered = await self.filter_commands(self.all_commands.values())
+        # Iterate through cogs and their commands
+        for cog in mapping.keys():
+            commands_list = mapping[cog]
+            filtered = await self.filter_commands(commands_list)
         
         # Group commands by cog
         command_map = {}
