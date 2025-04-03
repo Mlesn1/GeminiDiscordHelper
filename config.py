@@ -31,7 +31,7 @@ AUTO_RESPONSE_COOLDOWN = int(os.getenv("AUTO_RESPONSE_COOLDOWN", "10"))
 
 # Message configuration
 MAX_RESPONSE_LENGTH = 1900  # Discord message character limit is 2000, leaving some buffer
-RESPONSE_FOOTER = "\n\n*Powered by Gemini 1.5 AI*"
+RESPONSE_FOOTER = ""
 
 # Cooldown settings (in seconds)
 COMMAND_COOLDOWN = int(os.getenv("COMMAND_COOLDOWN", "5"))

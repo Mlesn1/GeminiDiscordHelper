@@ -73,10 +73,6 @@ class AICommands(commands.Cog, name="AI Commands"):
                     author_name=author_name
                 )
 
-                # Add the footer to the response if it's not too long
-                if len(response) + len(RESPONSE_FOOTER) <= MAX_RESPONSE_LENGTH:
-                    response += RESPONSE_FOOTER
-
                 # Split the response if it's too long for Discord
                 if len(response) > MAX_RESPONSE_LENGTH:
                     chunks = [response[i:i+MAX_RESPONSE_LENGTH] 
@@ -234,10 +230,10 @@ class AICommands(commands.Cog, name="AI Commands"):
         """Wyświetl dokumentację bota po polsku. Użyj !dok <sekcja> aby zobaczyć konkretne sekcje.
         Dostępne sekcje: features, commands, memory, settings, auto"""
         await self._send_documentation(ctx, section, language="pl")
-        
+
     async def _send_documentation(self, ctx, section: str = None, language: str = "en"):
         """Internal method to handle documentation in different languages"""
-        
+
         if section and section.lower() not in ["features", "commands", "memory", "settings", "auto"]:
             await ctx.send("❌ Invalid section. Available sections: features, commands, memory, settings, auto")
             return
@@ -255,7 +251,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     description="Witaj w dokumentacji bota! Użyj `!dok <sekcja>` aby zobaczyć szczegółowe informacje o konkretnych funkcjach.",
                     color=discord.Color.blue()
                 )
-                
+
                 embed.add_field(
                     name="📚 Dostępne Sekcje",
                     value=(
@@ -273,7 +269,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     description="Welcome to the bot documentation! Use `!doc <section>` to view detailed information about specific features.",
                     color=discord.Color.blue()
                 )
-                
+
                 embed.add_field(
                     name="📚 Available Sections",
                     value=(
@@ -285,7 +281,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     ),
                     inline=False
                 )
-            
+
         elif section.lower() == "features":
             if language == "pl":
                 embed = discord.Embed(
@@ -321,7 +317,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     ),
                     inline=False
                 )
-            
+
         elif section.lower() == "commands":
             embed = discord.Embed(
                 title="Bot Commands",
@@ -346,7 +342,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                 ),
                 inline=False
             )
-            
+
         elif section.lower() == "memory":
             embed = discord.Embed(
                 title="Memory System",
@@ -363,7 +359,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                 ),
                 inline=False
             )
-            
+
         elif section.lower() == "settings":
             if language == "pl":
                 embed = discord.Embed(
@@ -399,7 +395,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     ),
                     inline=False
                 )
-            
+
         elif section.lower() == "auto":
             if language == "pl":
                 embed = discord.Embed(
@@ -433,7 +429,7 @@ class AICommands(commands.Cog, name="AI Commands"):
                     ),
                     inline=False
                 )
-        
+
         embed.set_footer(text="For more help, type !help or contact a server administrator")
         await ctx.send(embed=embed)
 
@@ -446,7 +442,7 @@ class AICommands(commands.Cog, name="AI Commands"):
             if not channel:
                 await ctx.send("❌ Channel not found.")
                 return
-                
+
             while True:
                 await channel.send(message)
                 await asyncio.sleep(interval)
@@ -502,10 +498,6 @@ class AICommands(commands.Cog, name="AI Commands"):
                     user_id=user_id,
                     author_name=author_name
                 )
-
-                # Add the footer to the response if it's not too long
-                if len(response) + len(RESPONSE_FOOTER) <= MAX_RESPONSE_LENGTH:
-                    response += RESPONSE_FOOTER
 
                 # Split the response if it's too long for Discord
                 if len(response) > MAX_RESPONSE_LENGTH:
