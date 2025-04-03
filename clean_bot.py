@@ -75,6 +75,8 @@ GEMINI_SYSTEM_INSTRUCTIONS = os.getenv("GEMINI_SYSTEM_INSTRUCTIONS",
 AUTO_RESPONSE_CHANNELS = [int(id.strip()) for id in os.getenv("AUTO_RESPONSE_CHANNELS", "").split(",") if id.strip().isdigit()]
 AUTO_RESPONSE_IGNORE_PREFIX = os.getenv("AUTO_RESPONSE_IGNORE_PREFIX", "!").split(",")
 AUTO_RESPONSE_COOLDOWN = int(os.getenv("AUTO_RESPONSE_COOLDOWN", "10"))
+ENABLE_MENTION_RESPONSES = os.getenv("ENABLE_MENTION_RESPONSES", "true").lower() == "true"
+ENABLE_DIRECT_MESSAGE_RESPONSES = os.getenv("ENABLE_DIRECT_MESSAGE_RESPONSES", "true").lower() == "true"
 
 # Message configuration
 MAX_RESPONSE_LENGTH = 1900  # Discord message character limit is 2000, leaving some buffer
@@ -1428,13 +1430,17 @@ class AICommands(commands.Cog, name="AI Commands"):
     
     @commands.Cog.listener()
     async def on_message(self, message):
-        """Listen for messages in auto-response channels."""
+        """Listen for messages in auto-response channels and direct messages."""
         # Ignore bot messages
         if message.author.bot:
             return
         
-        # Skip if not in an auto-response channel
-        if message.channel.id not in AUTO_RESPONSE_CHANNELS:
+        # Check if this is a valid channel for auto-response
+        is_auto_channel = message.channel.id in AUTO_RESPONSE_CHANNELS
+        is_direct_message = isinstance(message.channel, discord.DMChannel) and ENABLE_DIRECT_MESSAGE_RESPONSES
+        
+        # Skip if not in an auto-response channel or DM
+        if not is_auto_channel and not is_direct_message:
             return
         
         # Check if message starts with an ignored prefix
@@ -1928,8 +1934,71 @@ class GeminiBot(commands.Bot):
         if message.author == self.user:
             return
         
-        # Process commands
+        # Process commands first - this handles messages starting with the prefix
         await self.process_commands(message)
+        
+        # Don't respond to messages that already start with a command prefix
+        if message.content.startswith(tuple(AUTO_RESPONSE_IGNORE_PREFIX)):
+            return
+            
+        # Auto-respond if the message is in an auto-response channel
+        if message.channel.id in AUTO_RESPONSE_CHANNELS:
+            # Let the AI commands cog handle it - it has specific rate limiting
+            ai_cog = self.get_cog("AI Commands")
+            if ai_cog:
+                await ai_cog.on_message(message)
+            return
+            
+        # Auto-respond if it's a direct message (DM)
+        if isinstance(message.channel, discord.DMChannel) and ENABLE_DIRECT_MESSAGE_RESPONSES:
+            # Let the AI commands cog handle it
+            ai_cog = self.get_cog("AI Commands")
+            if ai_cog:
+                await ai_cog.on_message(message)
+            return
+            
+        # Auto-respond if the bot is mentioned directly
+        if ENABLE_MENTION_RESPONSES and self.user in message.mentions:
+            # Remove the mention from the message content
+            content = message.content.replace(f'<@{self.user.id}>', '').strip()
+            
+            # If there's actual content after removing the mention
+            if content:
+                # Create a modified message with the content without the mention
+                # (We can't modify the original message, so we'll pass this content to generate_response)
+                ai_cog = self.get_cog("AI Commands")
+                if ai_cog:
+                    # Apply typing indicator
+                    async with message.channel.typing():
+                        try:
+                            # Generate the AI response with conversation memory
+                            author_id = message.author.id if ENABLE_CONVERSATION_MEMORY else None
+                            channel_id = message.channel.id if ENABLE_CONVERSATION_MEMORY else None
+                            author_name = message.author.display_name
+                            
+                            # Generate the AI response
+                            response, conversation = await ai_cog.ai_service.generate_response(
+                                content,
+                                user_id=author_id, 
+                                channel_id=channel_id,
+                                author_name=author_name
+                            )
+                            
+                            # Send the response
+                            await message.reply(response[:2000])
+                            
+                            # If response is too long, send the rest as additional messages
+                            if len(response) > 2000:
+                                chunks = [response[2000:][i:i+1990] for i in range(0, len(response[2000:]), 1990)]
+                                for chunk in chunks:
+                                    await message.channel.send(chunk)
+                        except Exception as e:
+                            logger.error(f"Error generating response to mention: {e}")
+                            await message.reply("I had trouble generating a response. Try again later.")
+            else:
+                # If they just mentioned the bot without saying anything else
+                await message.reply("Hello! How can I help you today?")
+        
     
     async def on_command_error(self, ctx, error):
         """Handle command errors."""

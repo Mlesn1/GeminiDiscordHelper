@@ -5,6 +5,8 @@ A Discord bot powered by Google's Gemini 1.5 AI model that responds to user mess
 ## Features
 
 - Responds to text prompts using Gemini 1.5 AI
+- Auto-response to direct mentions (@Bot) and direct messages without command prefix
+- Dedicated auto-response channels where all messages get AI responses
 - Contextual conversation memory with tagging and archiving
 - User-specific conversation settings and customization
 - Rich formatting with automatic code highlighting
@@ -111,6 +113,16 @@ If you only want to run the bot without the web interface:
    cd ~/gemini-discord-bot && python pythonanywhere_bot.py
    ```
 3. This will run the bot continuously without the web interface
+
+### Auto-response Configuration
+
+You can configure the following auto-response settings in your .env file:
+
+- `AUTO_RESPONSE_CHANNELS`: Comma-separated list of channel IDs where the bot auto-responds to all messages
+- `AUTO_RESPONSE_IGNORE_PREFIX`: Messages starting with these prefixes will be ignored in auto-response channels
+- `AUTO_RESPONSE_COOLDOWN`: Cooldown seconds between auto-responses in the same channel
+- `ENABLE_MENTION_RESPONSES`: Enable/disable bot responses when directly mentioned (@Bot)
+- `ENABLE_DIRECT_MESSAGE_RESPONSES`: Enable/disable bot responses in direct messages (DMs)
 
 ### 5. Troubleshooting
 
