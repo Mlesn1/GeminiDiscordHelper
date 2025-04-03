@@ -17,36 +17,8 @@ app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
 @app.route('/')
 def index():
     """Homepage route that displays bot status and info."""
-    html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Gemini Discord Bot</title>
-        <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-    </head>
-    <body data-bs-theme="dark">
-        <div class="container mt-5">
-            <h1 class="text-center">Gemini Discord Bot</h1>
-            <p class="text-center">A Discord bot powered by Google's Gemini 1.5 AI</p>
-            
-            <div class="row mt-5">
-                <div class="col-md-6 offset-md-3">
-                    <div class="card">
-                        <div class="card-header">
-                            Bot Status
-                        </div>
-                        <div class="card-body">
-                            <p>This bot is running and ready to handle Discord commands.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return Response(html, mimetype='text/html')
+    from flask import render_template
+    return render_template('index.html')
 
 @app.route('/health')
 def health():

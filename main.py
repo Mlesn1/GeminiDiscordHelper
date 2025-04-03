@@ -55,8 +55,11 @@ def start_bot():
 if __name__ == "__main__":
     # Check if this is running under the run_discord_bot workflow
     if os.environ.get("REPL_WORKFLOW_NAME") == "run_discord_bot":
-        # Just start the bot directly
-        start_bot()
+        # Just start the bot directly, no Flask
+        import sys
+        sys.argv = [sys.argv[0]]  # Clear command line args to prevent Flask from parsing them
+        from discord_bot_only import start_bot as start_bot_only
+        start_bot_only()
     else:
         # When run normally, we'll start both the Flask app and the Discord bot
         # Start the bot in a separate thread

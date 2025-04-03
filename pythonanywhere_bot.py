@@ -1,44 +1,31 @@
 #!/usr/bin/env python3
 """
-Bot runner script to start only the Discord bot without the web interface.
-This is used by the run_discord_bot workflow.
+Entry point for running the Discord bot on PythonAnywhere.
+This file is specifically designed to work in PythonAnywhere's environment.
+
+To use this file:
+1. Upload it to your PythonAnywhere account
+2. Set up an "Always-on task" that runs: python pythonanywhere_bot.py
+3. This will keep your bot running continuously
 """
 import os
-import sys
 import logging
 from dotenv import load_dotenv
 from bot import GeminiBot
-
-# Block imports of Flask to prevent any web-related code from running
-# Create a mock Flask module to prevent errors
-class MockFlask:
-    def __init__(self, *args, **kwargs):
-        pass
-    def route(self, *args, **kwargs):
-        def decorator(f):
-            return f
-        return decorator
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
-
-class MockModule:
-    Flask = MockFlask
-    
-sys.modules['flask'] = MockModule()
+from utils.logger import setup_logger
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
-from utils.logger import setup_logger
 setup_logger()
 logger = logging.getLogger(__name__)
 
 def start_bot():
     """
-    Initialize and start the Discord bot (without Flask)
+    Initialize and start the Discord bot
     """
-    logger.info("Starting Gemini Discord Bot...")
+    logger.info("Starting Gemini Discord Bot on PythonAnywhere...")
     
     # Get Discord token from environment variables
     token = os.getenv("DISCORD_TOKEN")
@@ -59,6 +46,6 @@ def start_bot():
             # Exit with a temporary failure code to allow for restart
             exit(75)  # EX_TEMPFAIL from sysexits.h
         exit(1)
-        
+
 if __name__ == "__main__":
     start_bot()

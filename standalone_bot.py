@@ -1,44 +1,32 @@
 #!/usr/bin/env python3
 """
-Bot runner script to start only the Discord bot without the web interface.
-This is used by the run_discord_bot workflow.
+Standalone entry point for the Discord bot without any web components.
+This script avoids importing Flask entirely, solving port conflicts.
 """
 import os
 import sys
 import logging
 from dotenv import load_dotenv
 from bot import GeminiBot
+from utils.logger import setup_logger
 
-# Block imports of Flask to prevent any web-related code from running
-# Create a mock Flask module to prevent errors
-class MockFlask:
-    def __init__(self, *args, **kwargs):
-        pass
-    def route(self, *args, **kwargs):
-        def decorator(f):
-            return f
-        return decorator
-    def __getattr__(self, name):
-        return lambda *args, **kwargs: None
-
-class MockModule:
-    Flask = MockFlask
-    
-sys.modules['flask'] = MockModule()
+# Block any Flask imports to prevent port conflicts
+sys.modules['flask'] = type('DisabledFlask', (), {
+    '__getattr__': lambda self, name: lambda *args, **kwargs: None
+})()
 
 # Load environment variables
 load_dotenv()
 
 # Configure logging
-from utils.logger import setup_logger
 setup_logger()
 logger = logging.getLogger(__name__)
 
 def start_bot():
     """
-    Initialize and start the Discord bot (without Flask)
+    Initialize and start only the Discord bot (no web interface)
     """
-    logger.info("Starting Gemini Discord Bot...")
+    logger.info("Starting Gemini Discord Bot standalone (no web interface)...")
     
     # Get Discord token from environment variables
     token = os.getenv("DISCORD_TOKEN")
