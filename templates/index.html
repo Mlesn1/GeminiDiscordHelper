@@ -18,8 +18,9 @@
         </div>
         
         <div class="card">
-            <h2>Bot Status: Online</h2>
-            <p>This Discord bot is currently running and hosted on PythonAnywhere.</p>
+            <h2>Bot Status: {% if bot_status %}{{ bot_status }}{% else %}Unknown{% endif %}</h2>
+            <p>{% if bot_uptime %}Bot has been running for {{ bot_uptime }}{% else %}Bot is currently {% if bot_status == "Online" %}active{% else %}inactive{% endif %}{% endif %}</p>
+            <p>Hosting Environment: {{ hosting_env }}</p>
         </div>
         
         <div class="card">

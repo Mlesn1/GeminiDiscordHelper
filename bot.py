@@ -50,6 +50,34 @@ class GeminiBot(commands.Bot):
         activity = discord.Game(name=BOT_STATUS)
         await self.change_presence(status=discord.Status.online, activity=activity)
     
+    async def on_message(self, message):
+        """Event handler for messages in servers."""
+        # Ignore messages from the bot itself
+        if message.author == self.user:
+            return
+        
+        # Log the message for debugging
+        logger.info(f"Message from {message.author}: {message.content}")
+        
+        # Check if the bot was mentioned
+        if self.user.mentioned_in(message) and not message.mention_everyone:
+            logger.info(f"Bot was mentioned by {message.author} in {message.channel}")
+            # Remove the mention from the prompt
+            content = message.content.replace(f'<@{self.user.id}>', '').strip()
+            
+            if content:
+                # Get the AI commands cog
+                ai_cog = self.get_cog("AI Commands")
+                if ai_cog:
+                    ctx = await self.get_context(message)
+                    await ai_cog.ask(ctx, prompt=content)
+                else:
+                    logger.error("AI Commands cog not found")
+                    await message.channel.send("❌ Error: AI service is not available.")
+        
+        # Process commands as usual (for prefix commands)
+        await self.process_commands(message)
+    
     async def on_command_error(self, ctx, error):
         """Global error handler for command errors."""
         if isinstance(error, commands.CommandOnCooldown):

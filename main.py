@@ -8,9 +8,9 @@ It also provides the Flask application for web hosting when imported by gunicorn
 import os
 import logging
 import threading
+import sys
 import discord
 from dotenv import load_dotenv
-from bot import GeminiBot
 
 # Load environment variables
 load_dotenv()
@@ -20,11 +20,43 @@ from utils.logger import setup_logger
 setup_logger()
 logger = logging.getLogger(__name__)
 
-# Import Flask app for web interface
-from app import app
+# Check if we're running in the Discord bot workflow
+is_discord_workflow = os.environ.get("REPL_WORKFLOW_NAME") == "run_discord_bot"
 
-# For gunicorn to work, we need to provide the app variable
-# This is the Flask application that will be served
+# If we're in the Discord workflow, mock out Flask to prevent port conflicts
+if is_discord_workflow:
+    logger.info("Detected run_discord_bot workflow - running bot only mode")
+    # Create mock Flask module to prevent port conflicts
+    class MockFlask:
+        def __init__(self, *args, **kwargs):
+            pass
+        
+        def route(self, *args, **kwargs):
+            def decorator(f):
+                return f
+            return decorator
+            
+        def run(self, *args, **kwargs):
+            pass
+            
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+    
+    class MockModule:
+        Flask = MockFlask
+        
+    # Mock out flask before it gets imported anywhere
+    sys.modules['flask'] = MockModule()
+    sys.modules['flask_sqlalchemy'] = type('MockSQLAlchemy', (), {
+        '__getattr__': lambda self, name: lambda *args, **kwargs: None
+    })()
+    
+    # Import bot directly
+    from bot import GeminiBot
+else:
+    # Only import Flask if we're not in the Discord workflow
+    from app import app
+    from bot import GeminiBot
 
 def start_bot():
     """Start the Discord bot in a separate thread"""
@@ -53,18 +85,8 @@ def start_bot():
         logger.error(f"Error starting bot: {e}")
 
 if __name__ == "__main__":
-    # Check if this is running under the run_discord_bot workflow
-    if os.environ.get("REPL_WORKFLOW_NAME") == "run_discord_bot":
-        # Just start the bot directly, no Flask
-        # When running as the Discord bot workflow, avoid importing flask entirely
-        import sys
-        # Mock out flask to prevent port conflicts
-        sys.modules['flask'] = type('MockFlask', (), {
-            '__getattr__': lambda self, name: lambda *args, **kwargs: None
-        })()
-        # Clear command line args to prevent Flask from parsing them
-        sys.argv = [sys.argv[0]]
-        # Start only the bot
+    if is_discord_workflow:
+        # Start only the bot when in workflow mode
         start_bot()
     else:
         # When run normally, we'll start both the Flask app and the Discord bot
