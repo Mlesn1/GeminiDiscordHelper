@@ -223,6 +223,133 @@ class AICommands(commands.Cog, name="AI Commands"):
         except Exception as e:
             await ctx.send(f"❌ Error: {str(e)}")
 
+    @commands.command(aliases=["docs", "documentation"])
+    async def doc(self, ctx, section: str = None):
+        """Display bot documentation. Use !doc <section> to view specific sections.
+        Available sections: features, commands, memory, settings, auto"""
+        
+        if section and section.lower() not in ["features", "commands", "memory", "settings", "auto"]:
+            await ctx.send("❌ Invalid section. Available sections: features, commands, memory, settings, auto")
+            return
+
+        if not section:
+            # Main documentation page
+            embed = discord.Embed(
+                title="Gemini 1.5 AI Bot Documentation",
+                description="Welcome to the bot documentation! Use `!doc <section>` to view detailed information about specific features.",
+                color=discord.Color.blue()
+            )
+            
+            embed.add_field(
+                name="📚 Available Sections",
+                value=(
+                    "• `!doc features` - Overview of bot features\n"
+                    "• `!doc commands` - List of available commands\n"
+                    "• `!doc memory` - Conversation memory system\n"
+                    "• `!doc settings` - User settings and customization\n"
+                    "• `!doc auto` - Auto-response configuration"
+                ),
+                inline=False
+            )
+            
+        elif section.lower() == "features":
+            embed = discord.Embed(
+                title="Bot Features",
+                description="Key features of the Gemini 1.5 AI Bot",
+                color=discord.Color.green()
+            )
+            embed.add_field(
+                name="🤖 Core Features",
+                value=(
+                    "• Advanced AI responses using Gemini 1.5\n"
+                    "• Context-aware conversations\n"
+                    "• Multi-language support (English/Polish)\n"
+                    "• Customizable personality system\n"
+                    "• Auto-response in designated channels"
+                ),
+                inline=False
+            )
+            
+        elif section.lower() == "commands":
+            embed = discord.Embed(
+                title="Bot Commands",
+                description="List of available commands",
+                color=discord.Color.gold()
+            )
+            embed.add_field(
+                name="📝 Basic Commands",
+                value=(
+                    "• `!ask <question>` - Ask the AI a question\n"
+                    "• `!about` - Show bot information\n"
+                    "• `!help` or `!pomoc` - Show help menu"
+                ),
+                inline=False
+            )
+            embed.add_field(
+                name="🧠 Memory Commands",
+                value=(
+                    "• `!memory` - View memory settings\n"
+                    "• `!clear` - Clear conversation history\n"
+                    "• `!tag add/remove` - Manage conversation tags"
+                ),
+                inline=False
+            )
+            
+        elif section.lower() == "memory":
+            embed = discord.Embed(
+                title="Memory System",
+                description="Understanding the conversation memory system",
+                color=discord.Color.purple()
+            )
+            embed.add_field(
+                name="💭 Memory Features",
+                value=(
+                    "• Contextual conversation memory\n"
+                    "• Conversation tagging and archiving\n"
+                    "• Customizable memory depth\n"
+                    "• Memory expiration settings"
+                ),
+                inline=False
+            )
+            
+        elif section.lower() == "settings":
+            embed = discord.Embed(
+                title="User Settings",
+                description="Customizing your bot experience",
+                color=discord.Color.orange()
+            )
+            embed.add_field(
+                name="⚙️ Available Settings",
+                value=(
+                    "Use `!settings <setting> <value>` to customize:\n"
+                    "• `personality`: balanced/professional/creative/friendly/concise\n"
+                    "• `default_mood`: thoughtful/cheerful/curious/playful/professional\n"
+                    "• `max_memory_messages`: 10-100\n"
+                    "• `memory_expiry_days`: 1-30"
+                ),
+                inline=False
+            )
+            
+        elif section.lower() == "auto":
+            embed = discord.Embed(
+                title="Auto-Response System",
+                description="Understanding automatic responses",
+                color=discord.Color.teal()
+            )
+            embed.add_field(
+                name="🔄 Auto-Response Features",
+                value=(
+                    "• Responds automatically in designated channels\n"
+                    "• No need for mentions or commands\n"
+                    "• Customizable cooldown periods\n"
+                    "• Prefix-based message filtering"
+                ),
+                inline=False
+            )
+        
+        embed.set_footer(text="For more help, type !help or contact a server administrator")
+        await ctx.send(embed=embed)
+
     @commands.command()
     async def autosend(self, ctx, channel_id: int, interval: int, *, message: str):
         """Send a message periodically to a specified channel.
