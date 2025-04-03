@@ -197,6 +197,33 @@ class AICommands(commands.Cog, name="AI Commands"):
             await ctx.send(f"❌ Error sending message: {e}")
 
     @commands.command()
+    async def autochannel(self, ctx, channel_id: int = None):
+        """Set up or remove auto-response for a specific channel.
+        Usage: !autochannel <channel_id> - Enable auto-response for channel
+               !autochannel - Remove auto-response from current channel"""
+        try:
+            if channel_id is None:
+                # Remove current channel from auto-response list
+                if ctx.channel.id in AUTO_RESPONSE_CHANNELS:
+                    AUTO_RESPONSE_CHANNELS.remove(ctx.channel.id)
+                    await ctx.send(f"✅ Disabled auto-response in this channel")
+                else:
+                    await ctx.send("❌ Auto-response was not enabled in this channel")
+            else:
+                # Add new channel to auto-response list
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    if channel_id not in AUTO_RESPONSE_CHANNELS:
+                        AUTO_RESPONSE_CHANNELS.append(channel_id)
+                        await ctx.send(f"✅ Enabled auto-response in channel {channel.name}")
+                    else:
+                        await ctx.send(f"❌ Auto-response already enabled in {channel.name}")
+                else:
+                    await ctx.send("❌ Channel not found")
+        except Exception as e:
+            await ctx.send(f"❌ Error: {str(e)}")
+
+    @commands.command()
     async def autosend(self, ctx, channel_id: int, interval: int, *, message: str):
         """Send a message periodically to a specified channel.
         Usage: !autosend <channel_id> <interval_seconds> <message>"""
