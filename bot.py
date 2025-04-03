@@ -24,7 +24,7 @@ class GeminiBot(commands.Bot):
             command_prefix=BOT_PREFIX,
             description=BOT_DESCRIPTION,
             intents=intents,
-            help_command=commands.DefaultHelpCommand(),
+            # Help command will be set by the Polish help cog
         )
     
     async def setup_hook(self):
@@ -35,7 +35,8 @@ class GeminiBot(commands.Bot):
         cogs_to_load = [
             "cogs.ai_commands",
             "cogs.admin_commands",
-            "cogs.memory_commands"
+            "cogs.memory_commands",
+            "cogs.polish_help"  # Add the Polish help cog
         ]
         
         for cog in cogs_to_load:

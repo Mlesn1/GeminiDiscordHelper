@@ -28,8 +28,22 @@ class DBConversationAdapter:
     
     def __init__(self):
         """Initialize the adapter."""
-        self.db_service = DatabaseConversationService() if USE_DATABASE else None
-        logger.info(f"DB Conversation Adapter initialized. Using database: {USE_DATABASE}")
+        # Reference the global variable
+        global USE_DATABASE
+        
+        if USE_DATABASE:
+            try:
+                self.db_service = DatabaseConversationService()
+                logger.info(f"DB Conversation Adapter initialized with database support")
+            except Exception as e:
+                logger.error(f"Failed to initialize database service: {e}")
+                logger.warning(f"Falling back to in-memory conversation storage")
+                self.db_service = None
+                # Override the flag since we can't use the database
+                USE_DATABASE = False
+        else:
+            self.db_service = None
+            logger.info(f"DB Conversation Adapter initialized without database support")
 
     def get_user_conversation(self, user_id: int, username: str = "") -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         """

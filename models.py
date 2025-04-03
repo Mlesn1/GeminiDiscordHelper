@@ -2,12 +2,37 @@
 Models for the Discord bot database integration
 """
 from datetime import datetime
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app import db
+import os
+from sqlalchemy import ForeignKey, create_engine, Column, Integer, String, Boolean, DateTime, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship, declarative_base
+
+# Try to import from Flask app context first
+try:
+    from app import db
+    USING_FLASK_APP = True
+except (ImportError, RuntimeError):
+    USING_FLASK_APP = False
+    # Set up standalone SQLAlchemy for non-Flask usage
+    Base = declarative_base()
+    
+    # Create engine and session
+    DATABASE_URL = os.environ.get("DATABASE_URL")
+    if not DATABASE_URL:
+        # Fallback to SQLite for development/testing
+        DATABASE_URL = "sqlite:///discord_bot.db"
+    
+    engine = create_engine(DATABASE_URL)
+    from sqlalchemy.orm import sessionmaker
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-class User(db.Model):
+# Define the base class for models
+if USING_FLASK_APP:
+    ModelBase = db.Model
+else:
+    ModelBase = Base
+
+class User(ModelBase):
     """
     Discord user information
     """
@@ -28,7 +53,7 @@ class User(db.Model):
         return f"<User discord_id={self.discord_id}, username={self.username}>"
 
 
-class UserSettings(db.Model):
+class UserSettings(ModelBase):
     """
     User-specific settings for the Discord bot
     """
@@ -52,7 +77,7 @@ class UserSettings(db.Model):
         return f"<UserSettings for user_id={self.user_id}, personality={self.personality}>"
 
 
-class Channel(db.Model):
+class Channel(ModelBase):
     """
     Discord channel information
     """
@@ -71,7 +96,7 @@ class Channel(db.Model):
         return f"<Channel discord_id={self.discord_id}, name={self.name}>"
 
 
-class Conversation(db.Model):
+class Conversation(ModelBase):
     """
     Conversation model to group messages
     """
@@ -99,7 +124,7 @@ class Conversation(db.Model):
         return f"<Conversation channel_id={self.channel_id}, messages={len(self.messages)}>"
 
 
-class Message(db.Model):
+class Message(ModelBase):
     """
     Individual message in a conversation
     """
@@ -119,3 +144,17 @@ class Message(db.Model):
     
     def __repr__(self):
         return f"<Message role={self.role}, conversation_id={self.conversation_id}>"
+
+
+# Initialize tables for standalone mode
+if not USING_FLASK_APP:
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Function to get a database session
+    def get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()

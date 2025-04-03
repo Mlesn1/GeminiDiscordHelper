@@ -12,6 +12,7 @@ A Discord bot powered by Google's Gemini 1.5 AI model that responds to user mess
 - Context-aware responses that understand message threads
 - Automated conversation organization and retrieval
 - Simple command structure with prefix customization
+- Multi-language support with Polish help documentation
 - Built-in cooldowns to prevent abuse
 - Comprehensive error handling
 - Detailed logging for debugging
@@ -122,6 +123,7 @@ If you only want to run the bot without the web interface:
 ### General Commands
 - `!ask <your question>` - Ask the AI a question
 - `!about` - Display information about the bot
+- `!help`, `!pomoc`, `!komendy` - Display help information (available in Polish)
 
 ### Memory Management Commands
 - `!memory` - Show your conversation memory settings

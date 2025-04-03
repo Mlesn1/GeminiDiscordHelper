@@ -37,6 +37,17 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
     logger.info("Loaded environment variables from .env file")
+    
+    # Set database URL if needed
+    if "DATABASE_URL" not in os.environ and all(key in os.environ for key in ["PGUSER", "PGPASSWORD", "PGHOST", "PGPORT", "PGDATABASE"]):
+        # Construct DATABASE_URL from individual components
+        pg_user = os.environ["PGUSER"]
+        pg_password = os.environ["PGPASSWORD"]
+        pg_host = os.environ["PGHOST"]
+        pg_port = os.environ["PGPORT"]
+        pg_database = os.environ["PGDATABASE"]
+        os.environ["DATABASE_URL"] = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+        logger.info("Constructed DATABASE_URL from individual PostgreSQL environment variables")
 except ImportError:
     logger.warning("dotenv package not found, skipping .env file loading")
 
@@ -974,10 +985,19 @@ class GeminiAIService:
             
             # Prepare the content for the model based on whether we have conversation history
             if conversation_history:
-                # Add system instructions as the first message if we have conversation history
-                conversation_with_instructions = [
-                    {"role": "system", "parts": [{"text": self.system_instructions}]}
-                ] + conversation_history
+                # Note: Gemini 1.5 doesn't support system role, use user message with instructions
+                instructions_message = {"role": "user", "parts": [{"text": f"Instructions for you: {self.system_instructions}"}]}
+                
+                # Make sure none of the messages use "system" role
+                sanitized_history = []
+                for msg in conversation_history:
+                    # If role is "system", change it to "user"
+                    msg_copy = msg.copy()
+                    if msg_copy["role"] == "system":
+                        msg_copy["role"] = "user"
+                    sanitized_history.append(msg_copy)
+                
+                conversation_with_instructions = [instructions_message] + sanitized_history
                 
                 # Use conversation history to generate a contextual response
                 response = await asyncio.to_thread(
@@ -985,11 +1005,14 @@ class GeminiAIService:
                     conversation_with_instructions
                 )
             else:
-                # No conversation history, just use the prompt
-                full_prompt = f"{self.system_instructions}\n\nUser: {prompt}\n\nAssistant:"
+                # No conversation history, use structured messages
+                messages = [
+                    {"role": "user", "parts": [{"text": f"Instructions for you: {self.system_instructions}"}]},
+                    {"role": "user", "parts": [{"text": prompt}]}
+                ]
                 response = await asyncio.to_thread(
                     model.generate_content,
-                    full_prompt
+                    messages
                 )
             
             # Extract the text from the response
@@ -1863,7 +1886,7 @@ class GeminiBot(commands.Bot):
         super().__init__(
             command_prefix=BOT_PREFIX,
             intents=intents,
-            help_command=commands.DefaultHelpCommand(),
+            # Using custom Polish help command set by the cog
             description="A Discord bot powered by Gemini 1.5 AI"
         )
         
@@ -1874,6 +1897,11 @@ class GeminiBot(commands.Bot):
         # Add the command cogs
         await self.add_cog(AICommands(self))
         await self.add_cog(AdminCommands(self))
+        
+        # Create and add the Polish help cog
+        from cogs.polish_help import PolishHelpCog
+        await self.add_cog(PolishHelpCog(self))
+        logger.info("Polish help command cog loaded")
         
         logger.info("Bot setup complete")
     

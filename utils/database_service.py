@@ -4,27 +4,69 @@ Handles database operations for conversation memory.
 """
 
 import logging
+import os
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from contextlib import contextmanager
+from flask import Flask
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy import create_engine
 
-from app import db
-from models import User, UserSettings, Channel, Conversation, Message
-
+# Configure logger first
 logger = logging.getLogger(__name__)
+
+# Check if we're running in the Flask app context
+try:
+    # First try importing from app to see if we're in Flask context
+    from app import db
+    from models import USING_FLASK_APP, User, UserSettings, Channel, Conversation, Message
+    logger.info("Using Flask application context for database operations")
+except (ImportError, RuntimeError):
+    # If not using Flask app context, models.py will define USING_FLASK_APP as False
+    # This is the case when running in standalone mode (clean_bot.py)
+    from models import USING_FLASK_APP, User, UserSettings, Channel, Conversation, Message
+    from models import Base, engine, SessionLocal
+    logger.info("Using standalone SQLAlchemy for database operations (no Flask app context)")
+
+# Use the SessionLocal from models.py if not using Flask
+if not USING_FLASK_APP:
+    # Create a scoped session from SessionLocal
+    Session = scoped_session(SessionLocal)
+    logger.info("Created scoped database session for standalone mode")
+else:
+    Session = None
+    logger.info("Using Flask-SQLAlchemy session")
 
 @contextmanager
 def session_scope():
     """Provide a transactional scope around a series of operations."""
-    try:
-        yield db.session
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Database error: {e}")
-        raise
-    finally:
-        db.session.close()
+    if USING_FLASK_APP:
+        try:
+            # Use Flask-SQLAlchemy session
+            yield db.session
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Database error: {e}")
+            raise
+        finally:
+            db.session.close()
+    else:
+        # Use standalone SQLAlchemy session
+        if Session is None:
+            logger.error("Database session is not available")
+            raise RuntimeError("Database connection is not available")
+            
+        session = Session()
+        try:
+            yield session
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Database error: {e}")
+            raise
+        finally:
+            session.close()
 
 
 class DatabaseConversationService:
