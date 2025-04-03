@@ -196,6 +196,22 @@ class AICommands(commands.Cog, name="AI Commands"):
         except Exception as e:
             await ctx.send(f"❌ Error sending message: {e}")
 
+    @commands.command()
+    async def autosend(self, ctx, channel_id: int, interval: int, *, message: str):
+        """Send a message periodically to a specified channel.
+        Usage: !autosend <channel_id> <interval_seconds> <message>"""
+        try:
+            channel = self.bot.get_channel(channel_id)
+            if not channel:
+                await ctx.send("❌ Channel not found.")
+                return
+                
+            while True:
+                await channel.send(message)
+                await asyncio.sleep(interval)
+        except Exception as e:
+            await ctx.send(f"❌ Error in auto-send: {e}")
+
     @commands.Cog.listener()
     async def on_message(self, message):
         """Auto-respond to messages in configured channels."""
