@@ -15,9 +15,10 @@ class GeminiBot(commands.Bot):
     
     def __init__(self):
         """Initialize the bot with required intents and command prefix."""
-        intents = discord.Intents.default()
-        intents.messages = True
+        intents = discord.Intents.all()
         intents.message_content = True
+        intents.guilds = True
+        intents.guild_messages = True
         
         super().__init__(
             command_prefix=BOT_PREFIX,
