@@ -95,6 +95,9 @@ class AICommands(commands.Cog):
     @commands.command()
     async def about(self, ctx):
         """Show information about the Gemini AI bot."""
+        # Import config for auto-response info
+        from config import AUTO_RESPONSE_CHANNELS, GEMINI_MODEL, GEMINI_TEMPERATURE
+        
         embed = discord.Embed(
             title="Gemini AI Discord Bot",
             description="A Discord bot powered by Google's Gemini 1.5 AI",
@@ -105,11 +108,47 @@ class AICommands(commands.Cog):
             value="• `!ask <prompt>` - Ask Gemini AI a question\n• `!about` - Show this information",
             inline=False
         )
+        
+        # Add field about auto-response channels if configured
+        if AUTO_RESPONSE_CHANNELS:
+            channels_info = []
+            for channel_id in AUTO_RESPONSE_CHANNELS:
+                # In a Cog, we access the bot through self.bot
+                channel = self.bot.get_channel(channel_id)
+                if channel:
+                    channels_info.append(f"<#{channel_id}> (#{channel.name})")
+                else:
+                    channels_info.append(f"<#{channel_id}>")
+            
+            auto_response_info = (
+                f"The bot will automatically respond to all messages in these channels:\n"
+                f"{', '.join(channels_info)}"
+            )
+            embed.add_field(
+                name="Auto-Response Channels",
+                value=auto_response_info,
+                inline=False
+            )
+        
+        # Add model details
         embed.add_field(
-            name="About",
-            value="This bot uses Google's Gemini 1.5 Flash model to generate responses to your questions and prompts.",
+            name="Model",
+            value=(
+                f"**Model**: {GEMINI_MODEL}\n"
+                f"**Temperature**: {GEMINI_TEMPERATURE} (Higher = more creative, Lower = more focused)"
+            ),
             inline=False
         )
+        
+        embed.add_field(
+            name="About",
+            value=(
+                "This bot uses Google's Gemini 1.5 Flash model to generate responses to your questions and prompts. "
+                "The Gemini 1.5 model is designed for fast, efficient responses while still providing high-quality AI interactions."
+            ),
+            inline=False
+        )
+        
         embed.set_footer(text="Created with ❤️ using discord.py and Google's Generative AI")
         
         await ctx.send(embed=embed)
@@ -124,12 +163,18 @@ class GeminiBot(commands.Bot):
         intents.message_content = True
         intents.members = True
         
+        # Import here to avoid circular imports
+        from config import BOT_PREFIX
+        
         super().__init__(
-            command_prefix="!",
+            command_prefix=BOT_PREFIX,
             intents=intents,
             help_command=commands.DefaultHelpCommand(),
             description="A Discord bot powered by Google's Gemini 1.5 AI"
         )
+        
+        # Add cooldown tracking for auto-response channels
+        self.last_auto_response = {}
     
     async def setup_hook(self):
         """Set up the bot's cogs and extensions."""
@@ -147,11 +192,22 @@ class GeminiBot(commands.Bot):
         logger.info(f"Running on: {sys.platform} {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} ({os.name})")
         logger.info("-------------------")
         
+        # Import auto-response channels
+        from config import AUTO_RESPONSE_CHANNELS, BOT_STATUS
+        
         # Set activity status
+        status_text = BOT_STATUS
+        if AUTO_RESPONSE_CHANNELS:
+            # If we have auto-response channels configured, mention it in the status
+            if len(AUTO_RESPONSE_CHANNELS) == 1:
+                status_text = f"in 1 auto-response channel"
+            else:
+                status_text = f"in {len(AUTO_RESPONSE_CHANNELS)} auto-response channels"
+        
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.listening,
-                name="!ask commands"
+                name=status_text
             )
         )
 
@@ -160,8 +216,68 @@ class GeminiBot(commands.Bot):
         # Ignore messages from the bot itself
         if message.author == self.user:
             return
+        
+        # Import here to avoid circular imports
+        from config import (
+            AUTO_RESPONSE_CHANNELS, 
+            AUTO_RESPONSE_IGNORE_PREFIX,
+            AUTO_RESPONSE_COOLDOWN
+        )
+        import time
             
-        # Process commands
+        # Auto-respond in designated channels
+        if message.channel.id in AUTO_RESPONSE_CHANNELS:
+            # Skip processing if message starts with an ignored prefix
+            if any(message.content.startswith(prefix) for prefix in AUTO_RESPONSE_IGNORE_PREFIX):
+                pass
+            # Only respond to non-command messages
+            elif not message.content.startswith(self.command_prefix):
+                channel_id = message.channel.id
+                current_time = time.time()
+                
+                # Check if we're in cooldown for this channel
+                if channel_id in self.last_auto_response:
+                    time_since_last = current_time - self.last_auto_response[channel_id]
+                    if time_since_last < AUTO_RESPONSE_COOLDOWN:
+                        # Still in cooldown, skip processing
+                        logger.debug(
+                            f"Skipping auto-response in channel {message.channel.name} due to cooldown "
+                            f"({time_since_last:.1f}s/{AUTO_RESPONSE_COOLDOWN}s)"
+                        )
+                        await self.process_commands(message)
+                        return
+                
+                logger.info(f"Auto-responding to {message.author} in channel {message.channel.name}: {message.content}")
+                
+                # Get AI cog to use its service
+                ai_cog = self.get_cog("AI Commands")
+                if ai_cog:
+                    prompt = message.content
+                    
+                    # Update cooldown timestamp
+                    self.last_auto_response[channel_id] = current_time
+                    
+                    # Show typing indicator
+                    async with message.channel.typing():
+                        try:
+                            response = await ai_cog.ai_service.generate_response(prompt)
+                            
+                            # Send the response
+                            if len(response) <= 2000:
+                                await message.reply(response)
+                            else:
+                                # Split into chunks for longer responses
+                                chunks = [response[i:i+2000] for i in range(0, len(response), 2000)]
+                                for i, chunk in enumerate(chunks):
+                                    if i == 0:
+                                        await message.reply(f"{chunk}\n(1/{len(chunks)})")
+                                    else:
+                                        await message.channel.send(f"{chunk}\n({i+1}/{len(chunks)})")
+                        except Exception as e:
+                            logger.error(f"Error in auto-response: {e}")
+                            await message.channel.send(f"I encountered an error processing your message: {str(e)}")
+        
+        # Process commands for all messages
         await self.process_commands(message)
     
     async def on_command_error(self, ctx, error):
