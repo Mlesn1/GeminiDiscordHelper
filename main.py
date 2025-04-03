@@ -66,6 +66,17 @@ print("=" * 50)
 from dotenv import load_dotenv
 load_dotenv()
 
+# Set database URL if needed
+if "DATABASE_URL" not in os.environ and all(key in os.environ for key in ["PGUSER", "PGPASSWORD", "PGHOST", "PGPORT", "PGDATABASE"]):
+    # Construct DATABASE_URL from individual components
+    pg_user = os.environ["PGUSER"]
+    pg_password = os.environ["PGPASSWORD"]
+    pg_host = os.environ["PGHOST"]
+    pg_port = os.environ["PGPORT"]
+    pg_database = os.environ["PGDATABASE"]
+    os.environ["DATABASE_URL"] = f"postgresql://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_database}"
+    logger.info("Constructed DATABASE_URL from individual PostgreSQL environment variables")
+
 # Import Flask and bot
 from app import app
 

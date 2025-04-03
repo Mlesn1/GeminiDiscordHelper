@@ -85,38 +85,127 @@ BOT_OWNERS = [int(id.strip()) for id in os.getenv("BOT_OWNERS", "").split(",") i
 # Mood indicator settings
 ENABLE_MOOD_INDICATOR = os.getenv("ENABLE_MOOD_INDICATOR", "true").lower() == "true"
 MOOD_CHANGE_PROBABILITY = float(os.getenv("MOOD_CHANGE_PROBABILITY", "0.2"))
+ENABLE_ENERGY_METER = os.getenv("ENABLE_ENERGY_METER", "true").lower() == "true"
+DEFAULT_PERSONALITY = os.getenv("DEFAULT_PERSONALITY", "balanced")
+USER_SELECTABLE_PERSONALITY = os.getenv("USER_SELECTABLE_PERSONALITY", "true").lower() == "true"
 
 # Mood definitions and their emoji indicators
 MOODS = {
     "happy": {
         "emoji": "😊",
         "prefixes": ["Happily, ", "With joy, ", "Excitedly, "],
-        "suffixes": [" Feeling cheerful today!", " That was fun to answer!", " Hope that helps!"]
+        "suffixes": [" Feeling cheerful today!", " That was fun to answer!", " Hope that helps!"],
+        "energy": 5  # High energy
     },
     "thoughtful": {
         "emoji": "🤔",
         "prefixes": ["Hmm, ", "Let me think... ", "Considering that, "],
-        "suffixes": [" Still pondering this one...", " Quite an interesting question!", " What do you think?"]
+        "suffixes": [" Still pondering this one...", " Quite an interesting question!", " What do you think?"],
+        "energy": 3  # Medium energy
     },
     "curious": {
         "emoji": "🧐",
         "prefixes": ["Interestingly, ", "Curiously, ", "I wonder... "],
-        "suffixes": [" That's fascinating!", " I'd like to learn more about that.", " What else can we explore here?"]
+        "suffixes": [" That's fascinating!", " I'd like to learn more about that.", " What else can we explore here?"],
+        "energy": 4  # Medium-high energy
     },
     "playful": {
         "emoji": "😏",
         "prefixes": ["Oh! ", "Fun fact: ", "Ready for this? "],
-        "suffixes": [" Bet you didn't expect that answer!", " That's a fun one!", " *winks*"]
+        "suffixes": [" Bet you didn't expect that answer!", " That's a fun one!", " *winks*"],
+        "energy": 5  # High energy
     },
     "professional": {
         "emoji": "👨‍💼",
         "prefixes": ["Professionally speaking, ", "According to best practices, ", "In my analysis, "],
-        "suffixes": [" Hope that clarifies things.", " Let me know if you need more specific information.", " Is there anything else you'd like to know?"]
+        "suffixes": [" Hope that clarifies things.", " Let me know if you need more specific information.", " Is there anything else you'd like to know?"],
+        "energy": 2  # Lower energy
+    },
+    "calm": {
+        "emoji": "😌",
+        "prefixes": ["Calmly, ", "With measured thought, ", "Serenely, "],
+        "suffixes": [" Take your time to digest that.", " How does that resonate with you?", " I'm here whenever you're ready for more."],
+        "energy": 1  # Very low energy
+    },
+    "excited": {
+        "emoji": "🤩",
+        "prefixes": ["WOW! ", "How exciting! ", "Oh my goodness! "],
+        "suffixes": [" Isn't that AMAZING?!", " This is so cool!", " I'm thrilled to share this with you!"],
+        "energy": 5  # Maximum energy
     }
+}
+
+# Energy level emojis (0 lowest, 5 highest)
+ENERGY_LEVEL_INDICATORS = {
+    0: "🔋",  # Empty battery
+    1: "⚡",   # Low energy
+    2: "⚡⚡",  # Medium-low energy
+    3: "⚡⚡⚡", # Medium energy
+    4: "⚡⚡⚡⚡", # Medium-high energy
+    5: "⚡⚡⚡⚡⚡" # Full energy
 }
 
 # Default mood
 DEFAULT_MOOD = "thoughtful"
+
+# Personality definitions
+PERSONALITIES = {
+    "balanced": {
+        "name": "Balanced",
+        "description": "A well-rounded assistant that balances helpfulness, creativity, and precision.",
+        "gemini_params": {
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 40
+        },
+        "style_guide": "Balanced and adaptable, I provide comprehensive but concise answers.",
+        "emoji": "⚖️"
+    },
+    "creative": {
+        "name": "Creative",
+        "description": "Emphasizes creative and imaginative responses with more varied output.",
+        "gemini_params": {
+            "temperature": 0.9,
+            "top_p": 0.95,
+            "top_k": 50
+        },
+        "style_guide": "I'm particularly creative and expressive, offering imaginative and detailed responses.",
+        "emoji": "🎨"
+    },
+    "precise": {
+        "name": "Precise",
+        "description": "Focuses on accuracy and conciseness with less creative variation.",
+        "gemini_params": {
+            "temperature": 0.3,
+            "top_p": 0.75,
+            "top_k": 20
+        },
+        "style_guide": "I'm precise and to-the-point, focusing on accuracy and brevity.",
+        "emoji": "🎯"
+    },
+    "friendly": {
+        "name": "Friendly",
+        "description": "Warm and conversational, with a focus on approachability.",
+        "gemini_params": {
+            "temperature": 0.8,
+            "top_p": 0.9,
+            "top_k": 45
+        },
+        "style_guide": "I'm warm, friendly, and conversational, like talking to a helpful friend.",
+        "emoji": "🤗"
+    },
+    "technical": {
+        "name": "Technical",
+        "description": "Specializes in detailed technical explanations with appropriate terminology.",
+        "gemini_params": {
+            "temperature": 0.5,
+            "top_p": 0.85,
+            "top_k": 30
+        },
+        "style_guide": "I focus on technical accuracy and detail, using appropriate terminology and structure.",
+        "emoji": "🔧"
+    }
+}
 
 # Channel cooldowns for auto-response
 channel_cooldowns: Dict[int, float] = {}
@@ -332,6 +421,15 @@ class Conversation:
         return MOODS.get(self.mood, MOODS[DEFAULT_MOOD]).get("emoji", "")
 
 
+# Optional database conversation support - only import if needed
+try:
+    from utils.db_conversation_adapter import DBConversationAdapter
+    has_db_adapter = True
+    logger.info("Database conversation adapter imported successfully")
+except ImportError:
+    has_db_adapter = False
+    logger.warning("Could not import database conversation adapter - using in-memory only")
+
 class ConversationManager:
     """Manages conversations for different users and channels."""
     
@@ -347,14 +445,18 @@ class ConversationManager:
         self.last_cleanup = time.time()
         self.cleanup_interval = 3600  # 1 hour
         
-        logger.info("Conversation manager initialized")
+        # Database adapter if available
+        self.db_adapter = DBConversationAdapter() if has_db_adapter else None
+        
+        logger.info(f"Conversation manager initialized. Database support: {self.db_adapter is not None}")
     
-    def get_user_conversation(self, user_id: int) -> Conversation:
+    def get_user_conversation(self, user_id: int, username: str = "") -> Conversation:
         """
         Get or create a conversation for a user.
         
         Args:
             user_id: Discord user ID
+            username: Discord username (optional)
             
         Returns:
             The user's conversation
@@ -362,18 +464,47 @@ class ConversationManager:
         # Clean up expired conversations periodically
         self._maybe_cleanup()
         
-        # Get or create a new conversation for this user
-        if user_id not in self.user_conversations:
-            self.user_conversations[user_id] = Conversation()
+        # Check if we have a conversation in memory
+        conversation = self.user_conversations.get(user_id)
         
-        return self.user_conversations[user_id]
+        # If no conversation in memory, create one
+        if not conversation:
+            conversation = Conversation()
+            self.user_conversations[user_id] = conversation
+            
+            # If we have a database adapter, load conversation from DB
+            if self.db_adapter:
+                try:
+                    # Get conversation data from database
+                    conv_props, messages = self.db_adapter.get_user_conversation(user_id, username)
+                    
+                    # Apply properties to conversation
+                    conversation.mood = conv_props.get("mood", DEFAULT_MOOD)
+                    conversation.personality = conv_props.get("personality", DEFAULT_PERSONALITY)
+                    conversation.energy_level = conv_props.get("energy_level", 3)
+                    
+                    # Add messages to conversation if any
+                    for msg in messages:
+                        message = Message(
+                            role=msg["role"],
+                            content=msg["parts"][0]["text"],
+                            author_name=username if msg["role"] == "user" else "Gemini"
+                        )
+                        conversation.messages.append(message)
+                        
+                    logger.debug(f"Loaded conversation for user {user_id} from database: {len(messages)} messages")
+                except Exception as e:
+                    logger.error(f"Error loading conversation from database: {e}")
+        
+        return conversation
     
-    def get_channel_conversation(self, channel_id: int) -> Conversation:
+    def get_channel_conversation(self, channel_id: int, channel_name: str = "") -> Conversation:
         """
         Get or create a conversation for a channel.
         
         Args:
             channel_id: Discord channel ID
+            channel_name: Channel name (optional)
             
         Returns:
             The channel's conversation
@@ -381,11 +512,39 @@ class ConversationManager:
         # Clean up expired conversations periodically
         self._maybe_cleanup()
         
-        # Get or create a new conversation for this channel
-        if channel_id not in self.channel_conversations:
-            self.channel_conversations[channel_id] = Conversation()
+        # Check if we have a conversation in memory
+        conversation = self.channel_conversations.get(channel_id)
         
-        return self.channel_conversations[channel_id]
+        # If no conversation in memory, create one
+        if not conversation:
+            conversation = Conversation()
+            self.channel_conversations[channel_id] = conversation
+            
+            # If we have a database adapter, load conversation from DB
+            if self.db_adapter:
+                try:
+                    # Get conversation data from database
+                    conv_props, messages = self.db_adapter.get_channel_conversation(channel_id, channel_name)
+                    
+                    # Apply properties to conversation
+                    conversation.mood = conv_props.get("mood", DEFAULT_MOOD)
+                    conversation.personality = conv_props.get("personality", DEFAULT_PERSONALITY)
+                    conversation.energy_level = conv_props.get("energy_level", 3)
+                    
+                    # Add messages to conversation if any
+                    for msg in messages:
+                        message = Message(
+                            role=msg["role"],
+                            content=msg["parts"][0]["text"],
+                            author_name="User" if msg["role"] == "user" else "Gemini"
+                        )
+                        conversation.messages.append(message)
+                        
+                    logger.debug(f"Loaded conversation for channel {channel_id} from database: {len(messages)} messages")
+                except Exception as e:
+                    logger.error(f"Error loading channel conversation from database: {e}")
+        
+        return conversation
     
     def add_user_message(self, user_id: int, content: str, author_name: str = "") -> None:
         """
@@ -396,8 +555,10 @@ class ConversationManager:
             content: Message content
             author_name: Name of the user
         """
-        conversation = self.get_user_conversation(user_id)
+        # Get the conversation
+        conversation = self.get_user_conversation(user_id, author_name)
         
+        # Create message
         message = Message(
             role="user",
             content=content,
@@ -405,7 +566,15 @@ class ConversationManager:
             author_id=user_id
         )
         
+        # Add to in-memory conversation
         conversation.add_message(message)
+        
+        # Also add to database if available
+        if self.db_adapter:
+            try:
+                self.db_adapter.add_user_message(user_id, content, author_name)
+            except Exception as e:
+                logger.error(f"Error saving user message to database: {e}")
     
     def add_assistant_message(self, user_id: int, content: str) -> None:
         """
@@ -415,8 +584,10 @@ class ConversationManager:
             user_id: Discord user ID
             content: Message content
         """
+        # Get the conversation
         conversation = self.get_user_conversation(user_id)
         
+        # Create message
         message = Message(
             role="assistant",
             content=content,
@@ -424,7 +595,15 @@ class ConversationManager:
             author_id=0  # 0 for the bot itself
         )
         
+        # Add to in-memory conversation
         conversation.add_message(message)
+        
+        # Also add to database if available
+        if self.db_adapter:
+            try:
+                self.db_adapter.add_assistant_message(user_id, content)
+            except Exception as e:
+                logger.error(f"Error saving assistant message to database: {e}")
     
     def add_channel_user_message(self, channel_id: int, user_id: int, content: str, author_name: str = "") -> None:
         """
@@ -436,8 +615,10 @@ class ConversationManager:
             content: Message content
             author_name: Name of the user
         """
+        # Get the conversation
         conversation = self.get_channel_conversation(channel_id)
         
+        # Create message
         message = Message(
             role="user",
             content=content,
@@ -445,7 +626,15 @@ class ConversationManager:
             author_id=user_id
         )
         
+        # Add to in-memory conversation
         conversation.add_message(message)
+        
+        # Also add to database if available
+        if self.db_adapter:
+            try:
+                self.db_adapter.add_channel_user_message(channel_id, user_id, content, author_name)
+            except Exception as e:
+                logger.error(f"Error saving channel user message to database: {e}")
     
     def add_channel_assistant_message(self, channel_id: int, content: str) -> None:
         """
@@ -455,8 +644,10 @@ class ConversationManager:
             channel_id: Discord channel ID
             content: Message content
         """
+        # Get the conversation
         conversation = self.get_channel_conversation(channel_id)
         
+        # Create message
         message = Message(
             role="assistant",
             content=content,
@@ -464,7 +655,15 @@ class ConversationManager:
             author_id=0  # 0 for the bot itself
         )
         
+        # Add to in-memory conversation
         conversation.add_message(message)
+        
+        # Also add to database if available
+        if self.db_adapter:
+            try:
+                self.db_adapter.add_channel_assistant_message(channel_id, content)
+            except Exception as e:
+                logger.error(f"Error saving channel assistant message to database: {e}")
     
     def clear_user_conversation(self, user_id: int) -> bool:
         """
@@ -476,10 +675,24 @@ class ConversationManager:
         Returns:
             True if the conversation was cleared, False if it didn't exist
         """
+        success = False
+        
+        # Clear in-memory conversation
         if user_id in self.user_conversations:
             self.user_conversations[user_id] = Conversation()
-            return True
-        return False
+            success = True
+        
+        # Also clear in database if available
+        if self.db_adapter:
+            try:
+                db_success = self.db_adapter.clear_user_conversation(user_id)
+                success = success or db_success
+                if db_success:
+                    logger.debug(f"Cleared conversation history for user {user_id} in database")
+            except Exception as e:
+                logger.error(f"Error clearing user conversation in database: {e}")
+        
+        return success
     
     def clear_channel_conversation(self, channel_id: int) -> bool:
         """
@@ -491,10 +704,24 @@ class ConversationManager:
         Returns:
             True if the conversation was cleared, False if it didn't exist
         """
+        success = False
+        
+        # Clear in-memory conversation
         if channel_id in self.channel_conversations:
             self.channel_conversations[channel_id] = Conversation()
-            return True
-        return False
+            success = True
+        
+        # Also clear in database if available
+        if self.db_adapter:
+            try:
+                db_success = self.db_adapter.clear_channel_conversation(channel_id)
+                success = success or db_success
+                if db_success:
+                    logger.debug(f"Cleared conversation history for channel {channel_id} in database")
+            except Exception as e:
+                logger.error(f"Error clearing channel conversation in database: {e}")
+        
+        return success
     
     def get_user_conversation_preview(self, user_id: int) -> Optional[List[Message]]:
         """
@@ -544,6 +771,57 @@ class ConversationManager:
             formatted.append(f"**{name}**: {msg.content[:100]}{'...' if len(msg.content) > 100 else ''}")
         
         return "\n".join(formatted)
+        
+    def set_user_personality(self, user_id: int, personality_name: str) -> bool:
+        """
+        Set the personality for a user's conversation.
+        
+        Args:
+            user_id: Discord user ID
+            personality_name: Name of the personality to set
+            
+        Returns:
+            True if the personality was set successfully, False otherwise
+        """
+        # Get the user's conversation
+        conversation = self.get_user_conversation(user_id)
+        in_memory_success = conversation.set_personality(personality_name)
+        
+        # If successfully set in memory, also set in database if available
+        if in_memory_success and self.db_adapter:
+            try:
+                db_success = self.db_adapter.set_user_personality(user_id, personality_name)
+                if not db_success:
+                    logger.warning(f"Failed to set personality '{personality_name}' for user {user_id} in database")
+            except Exception as e:
+                logger.error(f"Error setting personality in database: {e}")
+        
+        return in_memory_success
+        
+    def get_user_personality(self, user_id: int) -> str:
+        """
+        Get the personality for a user's conversation.
+        
+        Args:
+            user_id: Discord user ID
+            
+        Returns:
+            The name of the user's current personality, or the default personality if none set
+        """
+        # Check if we have a database personality setting
+        personality = None
+        if self.db_adapter:
+            try:
+                personality = self.db_adapter.get_user_personality(user_id)
+            except Exception as e:
+                logger.error(f"Error getting personality from database: {e}")
+        
+        # If no database personality, use in-memory conversation
+        if not personality:
+            conversation = self.get_user_conversation(user_id)
+            personality = conversation.personality
+        
+        return personality
     
     def _maybe_cleanup(self) -> None:
         """Periodically clean up expired conversations to free memory."""
@@ -945,8 +1223,8 @@ class AICommands(commands.Cog, name="AI Commands"):
             await ctx.send(f"Unknown personality: '{personality_name}'. Use `!set_personality` to see available options.")
             return
             
-        # Set the personality
-        success = conversation.set_personality(personality_name)
+        # Set the personality using conversation manager to save to DB
+        success = conversation_manager.set_user_personality(user_id, personality_name)
         
         if success:
             personality = PERSONALITIES[personality_name]

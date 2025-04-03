@@ -5,14 +5,36 @@ This serves as a simple web interface and keeps the bot alive.
 import os
 import logging
 from flask import Flask, jsonify, Response
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Create Flask app
+class Base(DeclarativeBase):
+    pass
+
+db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+
+# Configure database
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
+db.init_app(app)
+
+with app.app_context():
+    # Import the models here to avoid circular imports
+    import models  # noqa: F401
+    
+    # Create tables if they don't exist
+    db.create_all()
+    logger.info("Database tables created or verified")
 
 @app.route('/')
 def index():
