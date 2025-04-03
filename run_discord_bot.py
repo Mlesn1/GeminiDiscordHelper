@@ -26,11 +26,11 @@ print("NO FLASK COMPONENTS OR PORT CONFLICTS")
 print("="*80)
 
 try:
-    # Use os.execv to replace the current process with discord_bot_standalone.py
+    # Use os.execv to replace the current process with clean_bot.py
     # This completely avoids any Flask imports or port conflicts
-    standalone_script = os.path.join(os.path.dirname(__file__), "discord_bot_standalone.py")
+    standalone_script = os.path.join(os.path.dirname(__file__), "clean_bot.py")
     logger.info(f"Executing standalone bot script: {standalone_script}")
     os.execv(sys.executable, [sys.executable, standalone_script])
 except Exception as e:
-    logger.critical(f"Failed to execute discord_bot_standalone.py: {e}")
+    logger.critical(f"Failed to execute clean_bot.py: {e}")
     sys.exit(1)

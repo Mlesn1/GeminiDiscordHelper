@@ -8,50 +8,106 @@
         .container { max-width: 800px; margin: 0 auto; }
         .header { text-align: center; margin-bottom: 30px; }
         .card { padding: 20px; margin-bottom: 20px; background-color: #333; border-radius: 5px; }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            color: white;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .feature-icon { margin-right: 10px; font-size: 1.2em; }
+        .emoji { font-size: 1.5em; margin-right: 10px; }
     </style>
 </head>
 <body data-bs-theme="dark">
     <div class="container">
         <div class="header">
-            <h1>Gemini Discord Bot</h1>
+            <h1>🤖 Gemini Discord Bot</h1>
             <p>A Discord bot powered by Google's Gemini 1.5 AI model</p>
         </div>
         
         <div class="card">
-            <h2>Bot Status: {% if bot_status %}{{ bot_status }}{% else %}Unknown{% endif %}</h2>
+            <h2>
+                Bot Status: 
+                <span class="status-badge {% if bot_status == 'Online' %}status-online{% else %}status-offline{% endif %}">
+                    {% if bot_status %}{{ bot_status }}{% else %}Unknown{% endif %}
+                </span>
+            </h2>
             <p>{% if bot_uptime %}Bot has been running for {{ bot_uptime }}{% else %}Bot is currently {% if bot_status == "Online" %}active{% else %}inactive{% endif %}{% endif %}</p>
             <p>Hosting Environment: {{ hosting_env }}</p>
         </div>
         
         <div class="card">
-            <h2>Features</h2>
-            <ul>
-                <li>AI-powered responses using Gemini 1.5</li>
-                <li>Fast and efficient processing</li>
-                <li>Simple command interface</li>
+            <h2>✨ Features</h2>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><span class="emoji">🧠</span> AI-powered responses using Gemini 1.5</li>
+                <li class="list-group-item"><span class="emoji">💬</span> Contextual conversation memory</li>
+                <li class="list-group-item"><span class="emoji">🔄</span> Auto-response in designated channels</li>
+                <li class="list-group-item"><span class="emoji">😊</span> Dynamic mood indicators for more natural responses</li>
+                <li class="list-group-item"><span class="emoji">🌐</span> Multi-language support</li>
+                <li class="list-group-item"><span class="emoji">⚡</span> Fast and efficient processing</li>
             </ul>
         </div>
         
         <div class="card">
-            <h2>Commands</h2>
+            <h2>💻 Commands</h2>
             <table class="table">
-                <tr>
-                    <th>Command</th>
-                    <th>Description</th>
-                </tr>
-                <tr>
-                    <td>!ask [question]</td>
-                    <td>Ask the bot a question</td>
-                </tr>
-                <tr>
-                    <td>!about</td>
-                    <td>Get information about the bot</td>
-                </tr>
+                <thead>
+                    <tr>
+                        <th>Command</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>!ask &lt;question&gt;</code></td>
+                        <td>Ask the bot a question or provide a prompt</td>
+                    </tr>
+                    <tr>
+                        <td><code>!about</code></td>
+                        <td>Get information about the bot</td>
+                    </tr>
+                    <tr>
+                        <td><code>!clear_history user @user</code></td>
+                        <td>Clear conversation history for a specific user (Admin only)</td>
+                    </tr>
+                    <tr>
+                        <td><code>!clear_history channel #channel</code></td>
+                        <td>Clear conversation history for a specific channel (Admin only)</td>
+                    </tr>
+                    <tr>
+                        <td><code>!preview user @user</code></td>
+                        <td>Show conversation preview for a specific user (Admin only)</td>
+                    </tr>
+                    <tr>
+                        <td><code>!preview channel #channel</code></td>
+                        <td>Show conversation preview for a specific channel (Admin only)</td>
+                    </tr>
+                    <tr>
+                        <td><code>!botinfo</code></td>
+                        <td>Show detailed information about the bot (Admin only)</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
         
-        <footer style="text-align: center; margin-top: 30px;">
-            <p>Powered by Gemini 1.5 AI • Hosted on PythonAnywhere</p>
+        <div class="card">
+            <h2>🎭 Mood Indicators</h2>
+            <p>The bot features dynamic mood indicators that change the tone of responses:</p>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><span class="emoji">😊</span> <strong>Happy</strong> - Cheerful and enthusiastic responses</li>
+                <li class="list-group-item"><span class="emoji">🤔</span> <strong>Thoughtful</strong> - Contemplative and analytical responses</li>
+                <li class="list-group-item"><span class="emoji">🧐</span> <strong>Curious</strong> - Inquisitive and exploratory responses</li>
+                <li class="list-group-item"><span class="emoji">😏</span> <strong>Playful</strong> - Fun and light-hearted responses</li>
+                <li class="list-group-item"><span class="emoji">👨‍💼</span> <strong>Professional</strong> - Formal and business-like responses</li>
+            </ul>
+        </div>
+        
+        <footer style="text-align: center; margin-top: 30px; padding: 20px;">
+            <p>Powered by Gemini 1.5 AI • Hosted on {{ hosting_env }}</p>
+            <p><small>© 2025 • Gemini Discord Bot</small></p>
         </footer>
     </div>
 </body>

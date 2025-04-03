@@ -31,6 +31,7 @@ if (discord_bot_env or                                           # Explicit flag
     (env_workflow == "run_discord_bot") or                        # Exact workflow name match
     ("run_discord_bot.sh" in argv_str) or                         # Script name match
     ("discord_bot_standalone.py" in argv_str) or                  # Explicit standalone script
+    ("clean_bot.py" in argv_str) or                               # Our new clean bot script
     (os.path.exists("bot.pid") and not                           # PID file exists AND
      (sys.argv and "gunicorn" in " ".join(sys.argv).lower()))):  # NOT gunicorn
 
@@ -45,7 +46,7 @@ if (discord_bot_env or                                           # Explicit flag
         f.write(str(os.getpid()))
     
     # Use os.execv for a clean replacement of the current process
-    os.execv(sys.executable, [sys.executable, "discord_bot_standalone.py"])
+    os.execv(sys.executable, [sys.executable, "clean_bot.py"])
     
     # Failsafe in case execv doesn't work
     sys.exit(0)
