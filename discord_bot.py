@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Special entry point for running the Discord bot in the Replit workflow.
-This file completely avoids importing Flask, preventing port conflicts.
+Simple standalone Discord bot entry point.
+This file is explicitly designed to avoid any Flask imports or port bindings.
 """
 import os
 import sys
@@ -26,10 +26,8 @@ setup_logger()
 logger = logging.getLogger(__name__)
 
 def start_bot():
-    """
-    Initializes and starts the Discord bot without any web components
-    """
-    logger.info("Starting Discord bot from workflow...")
+    """Start the Discord bot only - no web components"""
+    logger.info("Starting Discord bot standalone...")
     
     # Get Discord token from environment variables
     token = os.getenv("DISCORD_TOKEN")
@@ -45,5 +43,9 @@ def start_bot():
         logger.error(f"Error starting bot: {e}")
         sys.exit(1)
 
-# Automatically start the bot when imported
+if __name__ == "__main__":
+    # Run the bot
+    start_bot()
+
+# If imported as a module, automatically start the bot
 start_bot()
