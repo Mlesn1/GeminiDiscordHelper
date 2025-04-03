@@ -137,6 +137,8 @@ class Conversation:
     messages: List[Message] = field(default_factory=list)
     last_activity: float = field(default_factory=time.time)
     mood: str = DEFAULT_MOOD
+    personality: str = DEFAULT_PERSONALITY
+    energy_level: int = 3  # Default medium energy
     
     def add_message(self, message: Message) -> None:
         """Add a message to the conversation history."""
@@ -146,6 +148,109 @@ class Conversation:
         # Keep only the most recent messages up to MAX_CONVERSATION_HISTORY
         if len(self.messages) > MAX_CONVERSATION_HISTORY:
             self.messages = self.messages[-MAX_CONVERSATION_HISTORY:]
+            
+        # Update energy level based on message content and current mood
+        if ENABLE_ENERGY_METER:
+            self._update_energy_level(message)
+            
+    def _update_energy_level(self, message: Message) -> None:
+        """
+        Update the conversation energy level based on the new message.
+        
+        The energy level is influenced by:
+        - Current mood's natural energy level
+        - Message length (longer messages increase energy)
+        - Message content (exclamation marks, question marks, capitals)
+        - Message role (user or assistant)
+        
+        Args:
+            message: The latest message added to the conversation
+        """
+        # Get current mood's natural energy level
+        mood_energy = MOODS.get(self.mood, MOODS[DEFAULT_MOOD]).get("energy", 3)
+        
+        # Base the new energy level on the current mood's energy
+        new_energy = mood_energy
+        
+        # Analyze message content for energy indicators
+        if message.role == "user":
+            # User messages can boost energy
+            content = message.content
+            
+            # Longer messages increase energy (slightly)
+            if len(content) > 100:
+                new_energy += 1
+            
+            # Excitement indicators
+            exclamation_count = content.count('!')
+            if exclamation_count > 2:
+                new_energy += 1
+            
+            # CAPS increase energy
+            caps_ratio = sum(1 for c in content if c.isupper()) / max(1, len(content))
+            if caps_ratio > 0.3:  # If more than 30% is caps
+                new_energy += 1
+                
+            # Questions may increase energy slightly
+            if '?' in content:
+                new_energy += 0.5
+                
+        # Gradually shift current energy toward the new target
+        # This creates a "momentum" effect where energy changes gradually
+        energy_diff = new_energy - self.energy_level
+        self.energy_level += energy_diff * 0.3  # Only move 30% toward the target
+        
+        # Ensure energy stays within bounds (0-5)
+        self.energy_level = max(0, min(5, self.energy_level))
+        
+    def get_energy_indicator(self) -> str:
+        """
+        Get the visual indicator for the current energy level.
+        
+        Returns:
+            A string representation of the energy level
+        """
+        if not ENABLE_ENERGY_METER:
+            return ""
+            
+        # Round to nearest integer for display
+        energy_int = round(self.energy_level)
+        return ENERGY_LEVEL_INDICATORS.get(energy_int, "⚡" * energy_int)
+        
+    def set_personality(self, personality_name: str) -> bool:
+        """
+        Set the personality for this conversation.
+        
+        Args:
+            personality_name: Name of the personality to set
+            
+        Returns:
+            True if successful, False if personality doesn't exist
+        """
+        if personality_name in PERSONALITIES:
+            self.personality = personality_name
+            return True
+        return False
+        
+    def get_personality_params(self) -> dict:
+        """
+        Get the Gemini API parameters for the current personality.
+        
+        Returns:
+            Dictionary of parameters to pass to the Gemini API
+        """
+        personality = PERSONALITIES.get(self.personality, PERSONALITIES[DEFAULT_PERSONALITY])
+        return personality.get("gemini_params", {})
+        
+    def get_personality_emoji(self) -> str:
+        """Get the emoji associated with the current personality."""
+        personality = PERSONALITIES.get(self.personality, PERSONALITIES[DEFAULT_PERSONALITY])
+        return personality.get("emoji", "")
+        
+    def get_personality_name(self) -> str:
+        """Get the display name of the current personality."""
+        personality = PERSONALITIES.get(self.personality, PERSONALITIES[DEFAULT_PERSONALITY])
+        return personality.get("name", self.personality.capitalize())
     
     def get_formatted_history(self, include_all: bool = False) -> List[Dict[str, Any]]:
         """
@@ -526,6 +631,9 @@ class GeminiAIService:
             mood_prefix = ""
             mood_suffix = ""
             mood_emoji = ""
+            personality_params = {}
+            energy_indicator = ""
+            personality_emoji = ""
             
             # Handle conversation memory if enabled
             if ENABLE_CONVERSATION_MEMORY:
@@ -541,6 +649,14 @@ class GeminiAIService:
                         conversation.maybe_change_mood()
                         mood_prefix, mood_suffix = conversation.get_mood_decorator()
                         mood_emoji = conversation.get_mood_emoji()
+                    
+                    # Get energy indicator if enabled
+                    if ENABLE_ENERGY_METER:
+                        energy_indicator = conversation.get_energy_indicator()
+                    
+                    # Get personality parameters
+                    personality_params = conversation.get_personality_params()
+                    personality_emoji = conversation.get_personality_emoji()
                         
                 elif channel_id:
                     # Channel-specific conversation
@@ -554,11 +670,26 @@ class GeminiAIService:
                         conversation.maybe_change_mood()
                         mood_prefix, mood_suffix = conversation.get_mood_decorator()
                         mood_emoji = conversation.get_mood_emoji()
+                    
+                    # Get energy indicator if enabled
+                    if ENABLE_ENERGY_METER:
+                        energy_indicator = conversation.get_energy_indicator()
+                    
+                    # Get personality parameters
+                    personality_params = conversation.get_personality_params()
+                    personality_emoji = conversation.get_personality_emoji()
             
-            # Create a generative model instance
+            # Create a generative model instance with personality parameters
+            generation_config = self.generation_config.copy()
+            
+            # Apply personality parameters if available
+            if personality_params:
+                for param, value in personality_params.items():
+                    generation_config[param] = value
+            
             model = genai.GenerativeModel(
                 model_name=self.model_name,
-                generation_config=self.generation_config
+                generation_config=generation_config
             )
             
             # Prepare the content for the model based on whether we have conversation history
@@ -587,14 +718,35 @@ class GeminiAIService:
             else:
                 response_text = str(response.candidates[0].content.parts[0].text)
             
-            # Apply mood styling if enabled
+            # Build styled response with mood, energy, and personality indicators
+            styled_response = response_text
+            
+            # Start with base response text
+            prefix_parts = []
+            suffix_parts = []
+            
+            # Add mood styling if enabled
             if ENABLE_MOOD_INDICATOR and (mood_prefix or mood_suffix or mood_emoji):
                 if mood_emoji:
-                    styled_response = f"{mood_emoji} {mood_prefix}{response_text}{mood_suffix}"
-                else:
-                    styled_response = f"{mood_prefix}{response_text}{mood_suffix}"
-            else:
-                styled_response = response_text
+                    prefix_parts.append(f"{mood_emoji}")
+                if mood_prefix:
+                    prefix_parts.append(mood_prefix)
+                if mood_suffix:
+                    suffix_parts.append(mood_suffix)
+                    
+            # Add energy meter if enabled
+            if ENABLE_ENERGY_METER and energy_indicator:
+                suffix_parts.append(f" {energy_indicator}")
+                
+            # Add personality indicator if available
+            if personality_emoji:
+                prefix_parts.append(f"{personality_emoji}")
+                
+            # Combine everything
+            prefix = " ".join(prefix_parts) + " " if prefix_parts else ""
+            suffix = " " + " ".join(suffix_parts) if suffix_parts else ""
+            
+            styled_response = f"{prefix}{response_text}{suffix}"
             
             # Store the assistant's response in conversation memory if enabled
             if ENABLE_CONVERSATION_MEMORY:
@@ -742,6 +894,70 @@ class AICommands(commands.Cog, name="AI Commands"):
                 await ctx.send(f"Sorry, I encountered an error: {str(e)}")
     
     @commands.command()
+    async def set_personality(self, ctx, personality_name: str = None):
+        """
+        Set the AI personality for your conversations.
+        
+        Available personalities: balanced, creative, precise, friendly, technical
+        
+        Usage: !set_personality <personality_name>
+        Example: !set_personality creative
+        """
+        if not USER_SELECTABLE_PERSONALITY:
+            await ctx.send("Personality selection is not enabled. Contact the bot administrator.")
+            return
+            
+        if not personality_name:
+            # Show available personalities
+            personalities_list = []
+            for p_id, p_info in PERSONALITIES.items():
+                emoji = p_info.get("emoji", "")
+                name = p_info.get("name", p_id.capitalize())
+                description = p_info.get("description", "")
+                personalities_list.append(f"{emoji} **{name}**: {description}")
+            
+            embed = discord.Embed(
+                title="Available Personalities",
+                description="Choose a personality with `!set_personality <name>`",
+                color=discord.Color.blue()
+            )
+            
+            embed.add_field(
+                name="Options",
+                value="\n".join(personalities_list),
+                inline=False
+            )
+            
+            await ctx.send(embed=embed)
+            return
+            
+        # Get user conversation
+        if not ENABLE_CONVERSATION_MEMORY:
+            await ctx.send("Conversation memory is disabled, so personalities cannot be set.")
+            return
+            
+        user_id = ctx.author.id
+        conversation = conversation_manager.get_user_conversation(user_id)
+        
+        # Try to set the personality
+        personality_name = personality_name.lower()
+        if personality_name not in PERSONALITIES:
+            await ctx.send(f"Unknown personality: '{personality_name}'. Use `!set_personality` to see available options.")
+            return
+            
+        # Set the personality
+        success = conversation.set_personality(personality_name)
+        
+        if success:
+            personality = PERSONALITIES[personality_name]
+            emoji = personality.get("emoji", "")
+            name = personality.get("name", personality_name.capitalize())
+            
+            await ctx.send(f"{emoji} Personality set to **{name}**! Your future interactions will use this personality.")
+        else:
+            await ctx.send("Failed to set personality. Please try again.")
+    
+    @commands.command()
     async def about(self, ctx):
         """Show information about the Gemini AI bot."""
         embed = discord.Embed(
@@ -755,6 +971,7 @@ class AICommands(commands.Cog, name="AI Commands"):
             name="Usage",
             value=(
                 "**Ask a question**: `!ask <your question>`\n"
+                "**Set personality**: `!set_personality <personality_name>`\n"
                 "**Get help**: `!help`\n"
                 "**About**: `!about`"
             ),
@@ -780,7 +997,9 @@ class AICommands(commands.Cog, name="AI Commands"):
             value=(
                 f"**Model**: {GEMINI_MODEL}\n"
                 f"**Conversation Memory**: {'Enabled' if ENABLE_CONVERSATION_MEMORY else 'Disabled'}\n"
-                f"**Mood Indicators**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}"
+                f"**Mood Indicators**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}\n"
+                f"**Energy Meter**: {'Enabled' if ENABLE_ENERGY_METER else 'Disabled'}\n"
+                f"**User Personalities**: {'Enabled' if USER_SELECTABLE_PERSONALITY else 'Disabled'}"
             ),
             inline=False
         )
@@ -996,7 +1215,9 @@ class AdminCommands(commands.Cog, name="Admin Commands"):
                 f"**Temperature**: {GEMINI_TEMPERATURE}\n"
                 f"**Conversation Memory**: {'Enabled' if ENABLE_CONVERSATION_MEMORY else 'Disabled'}\n"
                 f"**Memory Depth**: {MAX_CONVERSATION_HISTORY} messages\n"
-                f"**Mood Indicator**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}"
+                f"**Mood Indicator**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}\n"
+                f"**Energy Meter**: {'Enabled' if ENABLE_ENERGY_METER else 'Disabled'}\n"
+                f"**User Personalities**: {'Enabled' if USER_SELECTABLE_PERSONALITY else 'Disabled'}"
             ),
             inline=False
         )
