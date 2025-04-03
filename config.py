@@ -25,7 +25,7 @@ GEMINI_SYSTEM_INSTRUCTIONS = os.getenv("GEMINI_SYSTEM_INSTRUCTIONS",
 
 # Auto-response configuration
 # Comma-separated list of channel IDs where the bot should respond to all messages
-AUTO_RESPONSE_CHANNELS = [int(id.strip()) for id in os.getenv("AUTO_RESPONSE_CHANNELS", "").split(",") if id.strip().isdigit()]
+AUTO_RESPONSE_CHANNELS = [1234567890]  # Replace with your channel ID
 AUTO_RESPONSE_IGNORE_PREFIX = os.getenv("AUTO_RESPONSE_IGNORE_PREFIX", "!").split(",")
 AUTO_RESPONSE_COOLDOWN = int(os.getenv("AUTO_RESPONSE_COOLDOWN", "10"))
 
