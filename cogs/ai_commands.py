@@ -225,32 +225,66 @@ class AICommands(commands.Cog, name="AI Commands"):
 
     @commands.command(aliases=["docs", "documentation"])
     async def doc(self, ctx, section: str = None):
-        """Display bot documentation. Use !doc <section> to view specific sections.
+        """Display bot documentation in English. Use !doc <section> to view specific sections.
         Available sections: features, commands, memory, settings, auto"""
+        await self._send_documentation(ctx, section, language="en")
+
+    @commands.command(aliases=["dokument", "dokumentacja"])
+    async def dok(self, ctx, section: str = None):
+        """Wyświetl dokumentację bota po polsku. Użyj !dok <sekcja> aby zobaczyć konkretne sekcje.
+        Dostępne sekcje: features, commands, memory, settings, auto"""
+        await self._send_documentation(ctx, section, language="pl")
+        
+    async def _send_documentation(self, ctx, section: str = None, language: str = "en"):
+        """Internal method to handle documentation in different languages"""
         
         if section and section.lower() not in ["features", "commands", "memory", "settings", "auto"]:
             await ctx.send("❌ Invalid section. Available sections: features, commands, memory, settings, auto")
             return
 
+        if language == "pl":
+            error_msg = "❌ Nieprawidłowa sekcja. Dostępne sekcje: features, commands, memory, settings, auto"
+        else:
+            error_msg = "❌ Invalid section. Available sections: features, commands, memory, settings, auto"
+
         if not section:
             # Main documentation page
-            embed = discord.Embed(
-                title="Gemini 1.5 AI Bot Documentation",
-                description="Welcome to the bot documentation! Use `!doc <section>` to view detailed information about specific features.",
-                color=discord.Color.blue()
-            )
-            
-            embed.add_field(
-                name="📚 Available Sections",
-                value=(
-                    "• `!doc features` - Overview of bot features\n"
-                    "• `!doc commands` - List of available commands\n"
-                    "• `!doc memory` - Conversation memory system\n"
-                    "• `!doc settings` - User settings and customization\n"
-                    "• `!doc auto` - Auto-response configuration"
-                ),
-                inline=False
-            )
+            if language == "pl":
+                embed = discord.Embed(
+                    title="Dokumentacja Bota Gemini 1.5 AI",
+                    description="Witaj w dokumentacji bota! Użyj `!dok <sekcja>` aby zobaczyć szczegółowe informacje o konkretnych funkcjach.",
+                    color=discord.Color.blue()
+                )
+                
+                embed.add_field(
+                    name="📚 Dostępne Sekcje",
+                    value=(
+                        "• `!dok features` - Przegląd funkcji bota\n"
+                        "• `!dok commands` - Lista dostępnych komend\n"
+                        "• `!dok memory` - System pamięci rozmów\n"
+                        "• `!dok settings` - Ustawienia użytkownika\n"
+                        "• `!dok auto` - Konfiguracja auto-odpowiedzi"
+                    ),
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="Gemini 1.5 AI Bot Documentation",
+                    description="Welcome to the bot documentation! Use `!doc <section>` to view detailed information about specific features.",
+                    color=discord.Color.blue()
+                )
+                
+                embed.add_field(
+                    name="📚 Available Sections",
+                    value=(
+                        "• `!doc features` - Overview of bot features\n"
+                        "• `!doc commands` - List of available commands\n"
+                        "• `!doc memory` - Conversation memory system\n"
+                        "• `!doc settings` - User settings and customization\n"
+                        "• `!doc auto` - Auto-response configuration"
+                    ),
+                    inline=False
+                )
             
         elif section.lower() == "features":
             embed = discord.Embed(
