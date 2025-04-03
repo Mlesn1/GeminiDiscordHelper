@@ -1,3 +1,3 @@
 #!/bin/bash
-# This script starts only the Discord bot without the web interface
-python discord_bot_only.py
+# Run the Discord bot independently of Flask
+python run_discord_bot_workflow.py
