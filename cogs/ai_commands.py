@@ -287,22 +287,40 @@ class AICommands(commands.Cog, name="AI Commands"):
                 )
             
         elif section.lower() == "features":
-            embed = discord.Embed(
-                title="Bot Features",
-                description="Key features of the Gemini 1.5 AI Bot",
-                color=discord.Color.green()
-            )
-            embed.add_field(
-                name="🤖 Core Features",
-                value=(
-                    "• Advanced AI responses using Gemini 1.5\n"
-                    "• Context-aware conversations\n"
-                    "• Multi-language support (English/Polish)\n"
-                    "• Customizable personality system\n"
-                    "• Auto-response in designated channels"
-                ),
-                inline=False
-            )
+            if language == "pl":
+                embed = discord.Embed(
+                    title="Funkcje Bota",
+                    description="Główne funkcje bota Gemini 1.5 AI",
+                    color=discord.Color.green()
+                )
+                embed.add_field(
+                    name="🤖 Podstawowe Funkcje",
+                    value=(
+                        "• Zaawansowane odpowiedzi AI używając Gemini 1.5\n"
+                        "• Rozmowy z uwzględnieniem kontekstu\n"
+                        "• Wsparcie wielu języków (angielski/polski)\n"
+                        "• Konfigurowalny system osobowości\n"
+                        "• Auto-odpowiedzi w wyznaczonych kanałach"
+                    ),
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="Bot Features",
+                    description="Key features of the Gemini 1.5 AI Bot",
+                    color=discord.Color.green()
+                )
+                embed.add_field(
+                    name="🤖 Core Features",
+                    value=(
+                        "• Advanced AI responses using Gemini 1.5\n"
+                        "• Context-aware conversations\n"
+                        "• Multi-language support (English/Polish)\n"
+                        "• Customizable personality system\n"
+                        "• Auto-response in designated channels"
+                    ),
+                    inline=False
+                )
             
         elif section.lower() == "commands":
             embed = discord.Embed(
@@ -347,22 +365,40 @@ class AICommands(commands.Cog, name="AI Commands"):
             )
             
         elif section.lower() == "settings":
-            embed = discord.Embed(
-                title="User Settings",
-                description="Customizing your bot experience",
-                color=discord.Color.orange()
-            )
-            embed.add_field(
-                name="⚙️ Available Settings",
-                value=(
-                    "Use `!settings <setting> <value>` to customize:\n"
-                    "• `personality`: balanced/professional/creative/friendly/concise\n"
-                    "• `default_mood`: thoughtful/cheerful/curious/playful/professional\n"
-                    "• `max_memory_messages`: 10-100\n"
-                    "• `memory_expiry_days`: 1-30"
-                ),
-                inline=False
-            )
+            if language == "pl":
+                embed = discord.Embed(
+                    title="Ustawienia Użytkownika",
+                    description="Dostosowywanie działania bota",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="⚙️ Dostępne Ustawienia",
+                    value=(
+                        "Użyj `!settings <ustawienie> <wartość>` aby dostosować:\n"
+                        "• `personality`: balanced/professional/creative/friendly/concise (zbalansowany/profesjonalny/kreatywny/przyjazny/zwięzły)\n"
+                        "• `default_mood`: thoughtful/cheerful/curious/playful/professional (rozważny/wesoły/ciekawy/zabawny/profesjonalny)\n"
+                        "• `max_memory_messages`: 10-100 (maksymalna liczba zapamiętanych wiadomości)\n"
+                        "• `memory_expiry_days`: 1-30 (dni przed wygaśnięciem pamięci)"
+                    ),
+                    inline=False
+                )
+            else:
+                embed = discord.Embed(
+                    title="User Settings",
+                    description="Customizing your bot experience",
+                    color=discord.Color.orange()
+                )
+                embed.add_field(
+                    name="⚙️ Available Settings",
+                    value=(
+                        "Use `!settings <setting> <value>` to customize:\n"
+                        "• `personality`: balanced/professional/creative/friendly/concise\n"
+                        "• `default_mood`: thoughtful/cheerful/curious/playful/professional\n"
+                        "• `max_memory_messages`: 10-100\n"
+                        "• `memory_expiry_days`: 1-30"
+                    ),
+                    inline=False
+                )
             
         elif section.lower() == "auto":
             embed = discord.Embed(
