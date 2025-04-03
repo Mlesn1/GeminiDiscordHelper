@@ -108,22 +108,24 @@ class GeminiAIService:
             
             # Prepare the content for the model based on whether we have conversation history
             if conversation_history:
-                # Add system instructions as the first message if we have conversation history
-                conversation_with_instructions = [
-                    {"role": "system", "parts": [{"text": self.system_instructions}]}
-                ] + conversation_history
-                
                 # Use conversation history to generate a contextual response
+                # Note: Gemini 1.5 doesn't support system role, so we use user message with instructions
+                instructions_message = {"role": "user", "parts": [{"text": f"Instructions for you: {self.system_instructions}"}]}
+                conversation_with_instructions = [instructions_message] + conversation_history
+                
                 response = await asyncio.to_thread(
                     model.generate_content,
                     conversation_with_instructions
                 )
             else:
-                # No conversation history, just use the prompt
-                full_prompt = f"{self.system_instructions}\n\nUser: {prompt}\n\nAssistant:"
+                # No conversation history, use structured messages
+                messages = [
+                    {"role": "user", "parts": [{"text": f"Instructions for you: {self.system_instructions}"}]},
+                    {"role": "user", "parts": [{"text": prompt}]}
+                ]
                 response = await asyncio.to_thread(
                     model.generate_content,
-                    full_prompt
+                    messages
                 )
             
             # Extract the text from the response

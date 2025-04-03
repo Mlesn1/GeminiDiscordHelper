@@ -32,11 +32,18 @@ class GeminiBot(commands.Bot):
         # Load all cogs
         logger.info("Loading cogs...")
         
-        try:
-            await self.load_extension("cogs.ai_commands")
-            logger.info("Loaded AI commands cog")
-        except Exception as e:
-            logger.error(f"Failed to load AI commands cog: {e}")
+        cogs_to_load = [
+            "cogs.ai_commands",
+            "cogs.admin_commands",
+            "cogs.memory_commands"
+        ]
+        
+        for cog in cogs_to_load:
+            try:
+                await self.load_extension(cog)
+                logger.info(f"Loaded {cog}")
+            except Exception as e:
+                logger.error(f"Failed to load {cog}: {e}")
     
     async def on_ready(self):
         """Event handler that is called when the bot is ready and connected to Discord."""

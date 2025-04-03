@@ -37,6 +37,11 @@ class UserSettings(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
     personality: Mapped[str] = mapped_column(default="balanced")
+    max_memory_messages: Mapped[int] = mapped_column(default=50)  # Maximum number of messages to remember
+    memory_expiry_days: Mapped[int] = mapped_column(default=7)    # Number of days before memory expires
+    default_mood: Mapped[str] = mapped_column(default="thoughtful")
+    auto_title_conversations: Mapped[bool] = mapped_column(default=True)  # Auto-generate titles for conversations
+    dm_conversation_preview: Mapped[bool] = mapped_column(default=True)   # Send conversation preview as DM
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -77,6 +82,9 @@ class Conversation(db.Model):
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), nullable=True)
     mood: Mapped[str] = mapped_column(default="thoughtful")
     energy_level: Mapped[int] = mapped_column(default=3)
+    title: Mapped[str] = mapped_column(nullable=True)  # User-defined conversation title
+    tags: Mapped[str] = mapped_column(nullable=True)   # Comma-separated tags for the conversation
+    is_archived: Mapped[bool] = mapped_column(default=False)  # Whether this conversation is archived
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(default=datetime.utcnow, onupdate=datetime.utcnow)
     

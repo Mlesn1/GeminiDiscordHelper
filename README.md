@@ -5,6 +5,12 @@ A Discord bot powered by Google's Gemini 1.5 AI model that responds to user mess
 ## Features
 
 - Responds to text prompts using Gemini 1.5 AI
+- Contextual conversation memory with tagging and archiving
+- User-specific conversation settings and customization
+- Rich formatting with automatic code highlighting
+- Mood indicators and personality system
+- Context-aware responses that understand message threads
+- Automated conversation organization and retrieval
 - Simple command structure with prefix customization
 - Built-in cooldowns to prevent abuse
 - Comprehensive error handling
@@ -17,6 +23,7 @@ A Discord bot powered by Google's Gemini 1.5 AI model that responds to user mess
 - google-generativeai
 - flask (for web interface)
 - python-dotenv
+- sqlalchemy and flask-sqlalchemy for database support
 
 ## Setup Instructions
 
@@ -51,10 +58,7 @@ A Discord bot powered by Google's Gemini 1.5 AI model that responds to user mess
    git clone <repository-url>
    cd gemini-discord-bot
    ```
-4. Install the required packages:
-   ```
-   pip install --user discord.py google-generativeai python-dotenv flask gunicorn
-   ```
+4. Install the required packages (see requirements in pyproject.toml)
 5. Create a `.env` file with your API keys:
    ```
    echo "DISCORD_TOKEN=your_discord_bot_token" > .env
@@ -115,8 +119,37 @@ If you only want to run the bot without the web interface:
 
 ## Commands
 
+### General Commands
 - `!ask <your question>` - Ask the AI a question
 - `!about` - Display information about the bot
+
+### Memory Management Commands
+- `!memory` - Show your conversation memory settings
+- `!clear` - Clear your conversation history
+- `!tag add <tag1> <tag2>...` - Add tags to your conversation
+- `!tag remove <tag1> <tag2>...` - Remove tags from your conversation
+- `!title <title>` - Set a title for your conversation
+- `!archive` - Archive your current conversation
+- `!listconvo` - List your active conversations
+- `!listconvo true` - List all your conversations (including archived)
+- `!settings <setting> <value>` - Update a specific setting
+
+### Admin Commands (Requires Admin Role)
+- `!clear_history user @user` - Clear a specific user's conversation history
+- `!clear_history channel #channel` - Clear a specific channel's conversation history
+- `!preview user @user` - Show a specific user's conversation preview
+- `!preview channel #channel` - Show a specific channel's conversation preview
+- `!botinfo` - Show detailed information about the bot
+- `!list_user_settings @user` - List all settings for a specific user
+- `!list_user_conversations @user` - List conversations for a specific user
+
+## Available Settings
+- `personality`: balanced, professional, creative, friendly, concise
+- `default_mood`: thoughtful, cheerful, curious, playful, professional
+- `max_memory_messages`: 10-100 (number of messages to remember)
+- `memory_expiry_days`: 1-30 (days before memory expires)
+- `auto_title_conversations`: true/false
+- `dm_conversation_preview`: true/false
 
 ## Resource Usage
 

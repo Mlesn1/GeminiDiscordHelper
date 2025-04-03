@@ -134,7 +134,9 @@ class AICommands(commands.Cog, name="AI Commands"):
             value=(
                 "**Ask a question**: `!ask <your question>`\n"
                 "**Get help**: `!help`\n"
-                "**About**: `!about`"
+                "**About**: `!about`\n"
+                "**Memory settings**: `!memory`\n"
+                "**Manage conversations**: `!tag`, `!title`, `!clear`, `!archive`"
             ),
             inline=False
         )
@@ -145,9 +147,11 @@ class AICommands(commands.Cog, name="AI Commands"):
             value=(
                 "• Natural language understanding\n"
                 "• Multi-language support\n"
-                "• Contextual conversation memory\n"
+                "• Contextual conversation memory with tagging\n"
                 "• Auto-response in designated channels\n"
-                "• AI with mood indicators and personalities"
+                "• AI with mood indicators and personalities\n"
+                "• User-specific conversation settings\n"
+                "• Conversation archiving and organization"
             ),
             inline=False
         )

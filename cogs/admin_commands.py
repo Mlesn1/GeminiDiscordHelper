@@ -10,6 +10,7 @@ from typing import Optional, List
 
 from config import BOT_OWNERS, ADMIN_ROLE_NAME
 from utils.ai_service import GeminiAIService
+import utils.db_conversation_adapter
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class AdminCommands(commands.Cog, name="Admin Commands"):
         """Initialize the admin commands cog."""
         self.bot = bot
         self.ai_service = GeminiAIService()
+        self.db_adapter = utils.db_conversation_adapter.DBConversationAdapter()
     
     async def cog_check(self, ctx):
         """Check if the user can use admin commands."""
@@ -147,7 +149,9 @@ class AdminCommands(commands.Cog, name="Admin Commands"):
                 f"**Temperature**: {GEMINI_TEMPERATURE}\n"
                 f"**Conversation Memory**: {'Enabled' if ENABLE_CONVERSATION_MEMORY else 'Disabled'}\n"
                 f"**Memory Depth**: {MAX_CONVERSATION_HISTORY} messages\n"
-                f"**Mood Indicator**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}"
+                f"**Mood Indicator**: {'Enabled' if ENABLE_MOOD_INDICATOR else 'Disabled'}\n"
+                f"**User Settings**: Extended user configuration\n"
+                f"**Conversation Tagging**: Enabled"
             ),
             inline=False
         )
@@ -280,6 +284,110 @@ class AdminCommands(commands.Cog, name="Admin Commands"):
             else:
                 await ctx.send(f"No conversation history found for #{channel_name}.")
 
+
+    @commands.command()
+    async def list_user_settings(self, ctx, user_id: Optional[int] = None):
+        """
+        List all settings for a user.
+        
+        Usage:
+        !list_user_settings @user - List settings for a mentioned user
+        !list_user_settings user_id - List settings for a user by ID
+        
+        Requires the Bot Admin role or being a bot owner.
+        """
+        # If a user is mentioned, use that user's ID
+        if ctx.message.mentions:
+            user = ctx.message.mentions[0]
+            user_id = user.id
+            user_name = user.display_name
+        # If a user ID is provided, use that
+        elif user_id:
+            user = self.bot.get_user(user_id)
+            user_id = user_id
+            user_name = user.display_name if user else f"User {user_id}"
+        else:
+            await ctx.send("Please mention a user or provide a user ID.")
+            return
+        
+        # Get the user's settings
+        settings = self.db_adapter.get_user_settings(user_id)
+        
+        if settings:
+            embed = discord.Embed(
+                title=f"User Settings for {user_name}",
+                color=discord.Color.blue()
+            )
+            
+            # Add each setting to the embed
+            for key, value in settings.items():
+                embed.add_field(
+                    name=key.replace('_', ' ').title(),
+                    value=str(value),
+                    inline=True
+                )
+            
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"No settings found for {user_name}.")
+    
+    @commands.command()
+    async def list_user_conversations(self, ctx, user_id: Optional[int] = None, include_archived: bool = False):
+        """
+        List all conversations for a user.
+        
+        Usage:
+        !list_user_conversations @user - List active conversations for a mentioned user
+        !list_user_conversations @user true - Include archived conversations
+        !list_user_conversations user_id - List conversations for a user by ID
+        
+        Requires the Bot Admin role or being a bot owner.
+        """
+        # If a user is mentioned, use that user's ID
+        if ctx.message.mentions:
+            user = ctx.message.mentions[0]
+            user_id = user.id
+            user_name = user.display_name
+        # If a user ID is provided, use that
+        elif user_id:
+            user = self.bot.get_user(user_id)
+            user_id = user_id
+            user_name = user.display_name if user else f"User {user_id}"
+        else:
+            await ctx.send("Please mention a user or provide a user ID.")
+            return
+        
+        # Get the user's conversations
+        conversations = self.db_adapter.get_user_conversations(user_id, include_archived)
+        
+        if conversations:
+            embed = discord.Embed(
+                title=f"Conversations for {user_name}",
+                description=f"{'All conversations' if include_archived else 'Active conversations only'} ({len(conversations)} found)",
+                color=discord.Color.blue()
+            )
+            
+            # Add each conversation to the embed
+            for i, convo in enumerate(conversations[:25]):  # Limit to 25 for Discord embed
+                title = convo.get('title') or f"Conversation {i+1}"
+                status = "🔒 Archived" if convo.get('archived') else "🔓 Active"
+                tags = convo.get('tags') or []
+                tags_str = ", ".join(tags) if tags else "No tags"
+                message_count = convo.get('message_count') or 0
+                last_updated = convo.get('last_updated') or "Unknown"
+                
+                embed.add_field(
+                    name=f"{title} ({status})",
+                    value=f"Tags: {tags_str}\nMessages: {message_count}\nLast updated: {last_updated}",
+                    inline=False
+                )
+            
+            if len(conversations) > 25:
+                embed.set_footer(text=f"Showing 25 of {len(conversations)} conversations")
+            
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send(f"No conversations found for {user_name}.")
 
 async def setup(bot):
     """Setup function to add the cog to the bot."""

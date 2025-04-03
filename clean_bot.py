@@ -207,8 +207,10 @@ PERSONALITIES = {
     }
 }
 
-# Channel cooldowns for auto-response
-channel_cooldowns: Dict[int, float] = {}
+# Cooldown tracking for rate limiting
+channel_cooldowns: Dict[int, float] = {}  # Channel-based cooldowns
+user_cooldowns: Dict[int, float] = {}     # User-based cooldowns
+user_channel_cooldowns: Dict[str, float] = {}  # Combined user+channel cooldowns
 
 @dataclass
 class Message:
@@ -890,7 +892,7 @@ class GeminiAIService:
         logger.info(f"Initialized Gemini AI service with model: {self.model_name}")
     
     async def generate_response(self, prompt: str, user_id: Optional[int] = None, 
-                               channel_id: Optional[int] = None, author_name: str = "") -> Tuple[str, Optional[str]]:
+                               channel_id: Optional[int] = None, author_name: str = "") -> Tuple[str, Optional[Any]]:
         """
         Generate a response from Gemini 1.5 based on the given prompt.
         
@@ -901,7 +903,7 @@ class GeminiAIService:
             author_name: Name of the user sending the prompt.
             
         Returns:
-            A tuple containing (response_text, conversation_preview).
+            A tuple containing (response_text, conversation_object).
         """
         try:
             conversation_preview = None
@@ -1033,12 +1035,15 @@ class GeminiAIService:
                 elif channel_id:
                     conversation_manager.add_channel_assistant_message(channel_id, response_text)
             
-            # Format the conversation preview for display
-            formatted_preview = None
-            if conversation_preview:
-                formatted_preview = conversation_manager.format_preview_for_discord(conversation_preview)
+            # Return the styled response and the conversation object
+            if ENABLE_CONVERSATION_MEMORY:
+                if user_id:
+                    return styled_response, conversation
+                elif channel_id:
+                    return styled_response, conversation
             
-            return styled_response, formatted_preview
+            # If conversation memory is not enabled, return None for the conversation
+            return styled_response, None
                 
         except Exception as e:
             logger.error(f"Error generating response from Gemini: {e}")
@@ -1105,6 +1110,9 @@ class AICommands(commands.Cog, name="AI Commands"):
         Ask Gemini AI a question or provide a prompt.
         
         Usage: !ask <your question or prompt>
+        
+        Add [embed] to your question to force the response in a rich embed format.
+        Reply to another message to provide additional context.
         """
         # Apply cooldown
         bucket = self.cooldowns.get_bucket(ctx.message)
@@ -1113,6 +1121,17 @@ class AICommands(commands.Cog, name="AI Commands"):
         if retry_after:
             await ctx.send(f"Please wait {retry_after:.1f}s before using this command again.")
             return
+        
+        # Check if the message is a reply to a previous message for context awareness
+        referenced_message = ctx.message.reference.resolved if ctx.message.reference else None
+        context_message = None
+        is_context_aware = False
+        
+        # If this is a reply to a previous message, add context awareness
+        if referenced_message and not referenced_message.author.bot:
+            # Get the message being replied to for context
+            context_message = f"[Replying to {referenced_message.author.display_name}: \"{referenced_message.content}\"]"
+            is_context_aware = True
         
         # Show typing indicator
         async with ctx.typing():
@@ -1124,9 +1143,14 @@ class AICommands(commands.Cog, name="AI Commands"):
                 user_id = ctx.author.id if ENABLE_CONVERSATION_MEMORY else None
                 author_name = ctx.author.display_name
                 
+                # Construct the prompt with context if applicable
+                full_prompt = prompt
+                if context_message:
+                    full_prompt = f"{context_message}\n\n{prompt}"
+                
                 # Generate the AI response with conversation memory
-                response, conversation_preview = await self.ai_service.generate_response(
-                    prompt, 
+                response, conversation = await self.ai_service.generate_response(
+                    full_prompt, 
                     user_id=user_id,
                     author_name=author_name
                 )
@@ -1138,36 +1162,116 @@ class AICommands(commands.Cog, name="AI Commands"):
                 # Delete thinking message
                 await thinking_msg.delete()
                 
-                # Split response if too long
-                if len(response) > MAX_RESPONSE_LENGTH:
-                    chunks = [response[i:i+MAX_RESPONSE_LENGTH] 
-                              for i in range(0, len(response), MAX_RESPONSE_LENGTH)]
-                    
-                    # Send chunks
-                    for chunk in chunks:
-                        await ctx.send(chunk)
-                else:
-                    # Send complete response
-                    await ctx.send(response)
+                # Determine if we should use advanced formatting (embed)
+                # Use embeds for responses containing code blocks, long explanations, or when requested
+                use_embed = (
+                    "```" in response or  # Code blocks
+                    len(response) > 500 or  # Long responses
+                    "[embed]" in prompt.lower() or  # Explicitly requested
+                    (is_context_aware and len(response) > 200)  # Context-aware and moderately long
+                )
                 
-                # If we have a conversation preview, send it as an embed
-                if conversation_preview:
-                    # Only send the preview privately (ephemeral) to the command user
+                # If response is too long, always use embed or split into chunks
+                if len(response) > MAX_RESPONSE_LENGTH:
+                    if "```" in response or is_context_aware:
+                        # For code blocks or context-aware replies, prefer embeds
+                        use_embed = True
+                
+                # Get mood and personality indicators if enabled
+                mood_emoji = conversation.get_mood_emoji() if conversation else ""
+                personality_emoji = conversation.get_personality_emoji() if conversation else ""
+                energy_indicator = conversation.get_energy_indicator() if conversation else ""
+                
+                # For embeds, prepare a rich embed with formatting
+                if use_embed:
                     embed = discord.Embed(
-                        title="Your Conversation Context",
-                        description=conversation_preview,
-                        color=discord.Color.blue()
+                        description=response[:4000],  # Embed description has 4000 char limit
+                        color=0x4285F4  # Google Blue
                     )
-                    embed.set_footer(text="This is what I remember from our conversation.")
                     
-                    # Try to send the preview as a DM to avoid cluttering the channel
-                    try:
-                        await ctx.author.send(embed=embed)
-                    except discord.Forbidden:
-                        # If DM fails, send it to the channel
-                        await ctx.send(embed=embed)
+                    # Add custom title based on context
+                    if is_context_aware:
+                        embed.title = f"Reply to: {prompt[:50]}{'...' if len(prompt) > 50 else ''}"
+                    else:
+                        embed.title = f"Response to: {prompt[:50]}{'...' if len(prompt) > 50 else ''}"
+                    
+                    # Add personality and mood indicators in footer
+                    footer_text = ""
+                    if personality_emoji:
+                        footer_text += f"{personality_emoji} "
+                    if mood_emoji:
+                        footer_text += f"{mood_emoji} "
+                    if energy_indicator:
+                        footer_text += f"{energy_indicator} "
+                    
+                    footer_text += "Powered by Gemini 1.5 AI"
+                    embed.set_footer(text=footer_text)
+                    
+                    # Send the embed
+                    await ctx.send(embed=embed)
+                    
+                    # If response was too long for the embed, send remaining text as regular messages
+                    if len(response) > 4000:
+                        remaining_chunks = [response[4000:][i:i+MAX_RESPONSE_LENGTH] 
+                                        for i in range(0, len(response[4000:]), MAX_RESPONSE_LENGTH)]
+                        for chunk in remaining_chunks:
+                            await ctx.send(chunk)
+                else:
+                    # Add mood/personality indicators
+                    if mood_emoji or personality_emoji or energy_indicator:
+                        indicator = f"{mood_emoji} {personality_emoji} {energy_indicator}".strip()
+                        if indicator:
+                            response = f"{indicator} {response}"
+                    
+                    # Split response if too long
+                    if len(response) > MAX_RESPONSE_LENGTH:
+                        chunks = [response[i:i+MAX_RESPONSE_LENGTH] 
+                                for i in range(0, len(response), MAX_RESPONSE_LENGTH)]
+                        
+                        # Send chunks
+                        for chunk in chunks:
+                            await ctx.send(chunk)
+                    else:
+                        # Send complete response
+                        await ctx.send(response)
+                
+                # If we have a conversation and the user has a conversation history, send it as an embed
+                if conversation and hasattr(conversation, 'messages') and len(conversation.messages) > 1:
+                    # Get a preview of the conversation
+                    conversation_preview = ""
+                    for i, msg in enumerate(conversation.get_preview()):
+                        if i >= 5:  # Show at most 5 messages
+                            break
+                        role_emoji = "👤" if msg.role == "user" else "🤖"
+                        name = msg.author_name if msg.author_name else ("You" if msg.role == "user" else "Gemini")
+                        # Truncate long messages in the preview
+                        content = msg.content[:100] + ("..." if len(msg.content) > 100 else "")
+                        # Add to the preview
+                        conversation_preview += f"{role_emoji} **{name}**: {content}\n\n"
+                    
+                    # Only send the preview privately (ephemeral) to the command user
+                    if conversation_preview:
+                        embed = discord.Embed(
+                            title="Your Conversation Context",
+                            description=conversation_preview,
+                            color=discord.Color.blue()
+                        )
+                        embed.set_footer(text="This is what I remember from our conversation.")
+                        
+                        # Try to send the preview as a DM to avoid cluttering the channel
+                        try:
+                            await ctx.author.send(embed=embed)
+                        except discord.Forbidden:
+                            # If DM fails, just skip it - avoid cluttering the channel
+                            pass
                     
             except Exception as e:
+                # Delete thinking message if it exists
+                try:
+                    await thinking_msg.delete()
+                except:
+                    pass
+                
                 logger.error(f"Error in ask command: {e}")
                 await ctx.send(f"Sorry, I encountered an error: {str(e)}")
     
@@ -1249,6 +1353,8 @@ class AICommands(commands.Cog, name="AI Commands"):
             name="Usage",
             value=(
                 "**Ask a question**: `!ask <your question>`\n"
+                "**Advanced formatting**: `!ask [embed] <your question>`\n"
+                "**Context-aware**: Reply to a message when using `!ask`\n"
                 "**Set personality**: `!set_personality <personality_name>`\n"
                 "**Get help**: `!help`\n"
                 "**About**: `!about`"
@@ -1263,8 +1369,11 @@ class AICommands(commands.Cog, name="AI Commands"):
                 "• Natural language understanding\n"
                 "• Multi-language support\n"
                 "• Contextual conversation memory\n"
+                "• Context-aware replies and message threading\n"
+                "• Rich embed formatting for code and longer responses\n"
                 "• Auto-response in designated channels\n"
-                "• AI with mood indicators and personalities"
+                "• AI with mood indicators and personalities\n"
+                "• Energy level meters that adapt to conversation"
             ),
             inline=False
         )
@@ -1310,37 +1419,84 @@ class AICommands(commands.Cog, name="AI Commands"):
             if message.content.startswith(prefix):
                 return
         
-        # Apply channel cooldown
+        # Apply user-specific, channel-specific, and combined rate limiting
+        user_id = message.author.id
         channel_id = message.channel.id
+        user_channel_key = f"{user_id}:{channel_id}"
         current_time = time.time()
         
-        if channel_id in channel_cooldowns:
-            time_diff = current_time - channel_cooldowns[channel_id]
+        # Check user-specific cooldown first
+        if user_id in user_cooldowns:
+            time_diff = current_time - user_cooldowns[user_id]
             if time_diff < AUTO_RESPONSE_COOLDOWN:
                 # Add reaction if message came quickly after the last one
                 if time_diff < 2:
                     try:
                         await message.add_reaction("⏳")
+                        # Provide feedback about remaining cooldown
+                        cooldown_remaining = round(AUTO_RESPONSE_COOLDOWN - time_diff)
+                        if cooldown_remaining > 2:  # Only DM if more than 2 seconds remaining
+                            try:
+                                await message.author.send(f"Please wait {cooldown_remaining} more seconds before I can respond again.")
+                            except discord.Forbidden:
+                                pass  # Can't DM the user, just skip
                     except discord.Forbidden:
                         pass
                 return
+                
+        # Also check channel cooldown (to prevent spam in a single channel)
+        if channel_id in channel_cooldowns:
+            time_diff = current_time - channel_cooldowns[channel_id]
+            if time_diff < (AUTO_RESPONSE_COOLDOWN / 2):  # Channel cooldown is half the user cooldown
+                # If channel hit rate limit but user didn't, just ignore silently
+                return
         
-        # Update cooldown
+        # Check combined user+channel cooldown (stricter limits for same user in same channel)
+        if user_channel_key in user_channel_cooldowns:
+            time_diff = current_time - user_channel_cooldowns[user_channel_key]
+            if time_diff < (AUTO_RESPONSE_COOLDOWN * 1.5):  # 50% longer cooldown for repeated usage in same channel
+                # Add reaction if message came quickly after the last one
+                if time_diff < 3:
+                    try:
+                        await message.add_reaction("⏳")
+                    except discord.Forbidden:
+                        pass
+                return
+                
+        # Update all cooldowns
+        user_cooldowns[user_id] = current_time
         channel_cooldowns[channel_id] = current_time
+        user_channel_cooldowns[user_channel_key] = current_time
+        
+        # Check if the message is a reply to a previous message
+        referenced_message = message.reference.resolved if message.reference else None
+        context_message = None
+        is_context_aware = False
+        
+        # If this is a reply to a previous message, add context awareness
+        if referenced_message and not referenced_message.author.bot:
+            # Get the message being replied to for context
+            context_message = f"[Replying to {referenced_message.author.display_name}: \"{referenced_message.content}\"]"
+            is_context_aware = True
         
         # Process the message
         async with message.channel.typing():
             try:
                 # Get user information for conversation memory
-                user_id = message.author.id if ENABLE_CONVERSATION_MEMORY else None
+                author_id = message.author.id if ENABLE_CONVERSATION_MEMORY else None
                 channel_id = message.channel.id if ENABLE_CONVERSATION_MEMORY else None
                 author_name = message.author.display_name
                 
+                # Construct the prompt with context if applicable
+                prompt = message.content
+                if context_message:
+                    prompt = f"{context_message}\n\n{prompt}"
+                
                 # Generate the AI response with conversation memory (preferring channel conversation over user)
-                response, _ = await self.ai_service.generate_response(
-                    message.content,
+                response, conversation = await self.ai_service.generate_response(
+                    prompt,
                     channel_id=channel_id,
-                    user_id=user_id,
+                    user_id=author_id,
                     author_name=author_name
                 )
                 
@@ -1348,20 +1504,88 @@ class AICommands(commands.Cog, name="AI Commands"):
                 if len(response) + len(RESPONSE_FOOTER) <= MAX_RESPONSE_LENGTH:
                     response += RESPONSE_FOOTER
                 
-                # Split response if too long
+                # Determine if we should use advanced formatting (embed)
+                # Use embeds for responses containing code blocks, long explanations, or when requested
+                use_embed = (
+                    "```" in response or  # Code blocks
+                    len(response) > 500 or  # Long responses
+                    "[embed]" in message.content.lower() or  # Explicitly requested
+                    (is_context_aware and len(response) > 200)  # Context-aware and moderately long
+                )
+                
+                # If response is too long, always use embed or split into chunks
                 if len(response) > MAX_RESPONSE_LENGTH:
-                    chunks = [response[i:i+MAX_RESPONSE_LENGTH] 
-                              for i in range(0, len(response), MAX_RESPONSE_LENGTH)]
+                    if "```" in response or is_context_aware:
+                        # For code blocks or context-aware replies, prefer embeds
+                        use_embed = True
+                        
+                # Generate mood and personality indicators if enabled
+                mood_emoji = conversation.get_mood_emoji() if conversation else ""
+                personality_emoji = conversation.get_personality_emoji() if conversation else ""
+                energy_indicator = conversation.get_energy_indicator() if conversation else ""
+                
+                # For embeds, prepare a rich embed with formatting
+                if use_embed:
+                    embed = discord.Embed(
+                        description=response[:4000],  # Embed description has 4000 char limit
+                        color=0x4285F4  # Google Blue
+                    )
                     
-                    # Send first chunk as reply
-                    await message.reply(chunks[0])
+                    # Add custom title based on context
+                    if is_context_aware:
+                        embed.title = f"Reply to {referenced_message.author.display_name}"
+                    else:
+                        embed.title = f"Response to {message.author.display_name}"
                     
-                    # Send rest as regular messages
-                    for chunk in chunks[1:]:
-                        await message.channel.send(chunk)
+                    # Add personality and mood indicators in footer
+                    footer_text = ""
+                    if personality_emoji:
+                        footer_text += f"{personality_emoji} "
+                    if mood_emoji:
+                        footer_text += f"{mood_emoji} "
+                    if energy_indicator:
+                        footer_text += f"{energy_indicator} "
+                    
+                    footer_text += "Powered by Gemini 1.5 AI"
+                    embed.set_footer(text=footer_text)
+                    
+                    # Send the embed as a reply
+                    await message.reply(embed=embed)
+                    
+                    # If response was too long for the embed, send remaining text as regular messages
+                    if len(response) > 4000:
+                        remaining_chunks = [response[4000:][i:i+MAX_RESPONSE_LENGTH] 
+                                          for i in range(0, len(response[4000:]), MAX_RESPONSE_LENGTH)]
+                        for chunk in remaining_chunks:
+                            await message.channel.send(chunk)
                 else:
-                    # Send as reply
-                    await message.reply(response)
+                    # Split response if too long
+                    if len(response) > MAX_RESPONSE_LENGTH:
+                        chunks = [response[i:i+MAX_RESPONSE_LENGTH] 
+                                  for i in range(0, len(response), MAX_RESPONSE_LENGTH)]
+                        
+                        # Add mood/personality indicators to first chunk
+                        first_chunk = chunks[0]
+                        if mood_emoji or personality_emoji:
+                            indicator = f"{mood_emoji} {personality_emoji} {energy_indicator}".strip()
+                            if indicator:
+                                first_chunk = f"{indicator} {first_chunk}"
+                        
+                        # Send first chunk as reply
+                        await message.reply(first_chunk)
+                        
+                        # Send rest as regular messages
+                        for chunk in chunks[1:]:
+                            await message.channel.send(chunk)
+                    else:
+                        # Add mood/personality indicators
+                        if mood_emoji or personality_emoji:
+                            indicator = f"{mood_emoji} {personality_emoji} {energy_indicator}".strip()
+                            if indicator:
+                                response = f"{indicator} {response}"
+                        
+                        # Send as reply
+                        await message.reply(response)
             
             except Exception as e:
                 logger.error(f"Error in auto-response: {e}")

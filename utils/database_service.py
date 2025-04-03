@@ -386,6 +386,69 @@ class DatabaseConversationService:
                 settings.personality = personality
             
             return True
+            
+    def update_user_settings(self, discord_user_id: int, **settings) -> bool:
+        """
+        Update a user's settings with the provided values.
+        
+        Args:
+            discord_user_id: Discord user ID
+            **settings: Settings to update (keyword arguments)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        with session_scope() as session:
+            # Get user
+            user = session.query(User).filter_by(discord_id=discord_user_id).first()
+            if not user:
+                return False
+            
+            # Get or create settings
+            user_settings = session.query(UserSettings).filter_by(user_id=user.id).first()
+            if not user_settings:
+                # Create with defaults plus provided settings
+                kwargs = {k: v for k, v in settings.items() if hasattr(UserSettings, k)}
+                user_settings = UserSettings(user_id=user.id, **kwargs)
+                session.add(user_settings)
+            else:
+                # Update existing settings
+                for key, value in settings.items():
+                    if hasattr(user_settings, key):
+                        setattr(user_settings, key, value)
+            
+            return True
+            
+    def get_user_settings(self, discord_user_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get a user's settings.
+        
+        Args:
+            discord_user_id: Discord user ID
+            
+        Returns:
+            Dictionary of user settings or None if user not found
+        """
+        with session_scope() as session:
+            # Get user
+            user = session.query(User).filter_by(discord_id=discord_user_id).first()
+            if not user:
+                return None
+            
+            # Get settings
+            settings = session.query(UserSettings).filter_by(user_id=user.id).first()
+            if not settings:
+                return None
+            
+            # Convert to dictionary
+            return {
+                "personality": settings.personality,
+                "max_memory_messages": settings.max_memory_messages,
+                "memory_expiry_days": settings.memory_expiry_days,
+                "default_mood": settings.default_mood,
+                "auto_title_conversations": settings.auto_title_conversations,
+                "dm_conversation_preview": settings.dm_conversation_preview
+            }
     
     def get_user_personality(self, discord_user_id: int) -> Optional[str]:
         """
@@ -465,3 +528,172 @@ class DatabaseConversationService:
                 }
                 for msg in messages
             ]
+            
+    def set_conversation_title(self, discord_user_id: int = None, discord_channel_id: int = None, 
+                              title: str = None) -> bool:
+        """
+        Set a title for a conversation.
+        
+        Args:
+            discord_user_id: Discord user ID (optional)
+            discord_channel_id: Discord channel ID (optional)
+            title: Conversation title
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        with session_scope() as session:
+            conversation = self._get_conversation(session, discord_user_id, discord_channel_id)
+            if not conversation:
+                return False
+                
+            conversation.title = title
+            return True
+            
+    def add_conversation_tags(self, discord_user_id: int = None, discord_channel_id: int = None,
+                             tags: List[str] = None) -> bool:
+        """
+        Add tags to a conversation.
+        
+        Args:
+            discord_user_id: Discord user ID (optional)
+            discord_channel_id: Discord channel ID (optional)
+            tags: List of tags to add
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not tags:
+            return False
+            
+        with session_scope() as session:
+            conversation = self._get_conversation(session, discord_user_id, discord_channel_id)
+            if not conversation:
+                return False
+                
+            # Add new tags to existing ones
+            existing_tags = set(conversation.tags.split(',')) if conversation.tags else set()
+            existing_tags.update(tags)
+            # Remove empty strings
+            existing_tags.discard('')
+            
+            conversation.tags = ','.join(existing_tags)
+            return True
+            
+    def remove_conversation_tags(self, discord_user_id: int = None, discord_channel_id: int = None,
+                               tags: List[str] = None) -> bool:
+        """
+        Remove tags from a conversation.
+        
+        Args:
+            discord_user_id: Discord user ID (optional)
+            discord_channel_id: Discord channel ID (optional)
+            tags: List of tags to remove
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not tags:
+            return False
+            
+        with session_scope() as session:
+            conversation = self._get_conversation(session, discord_user_id, discord_channel_id)
+            if not conversation or not conversation.tags:
+                return False
+                
+            # Remove specified tags
+            existing_tags = set(conversation.tags.split(','))
+            for tag in tags:
+                existing_tags.discard(tag)
+                
+            conversation.tags = ','.join(existing_tags) if existing_tags else None
+            return True
+            
+    def archive_conversation(self, discord_user_id: int = None, discord_channel_id: int = None,
+                            archive: bool = True) -> bool:
+        """
+        Archive or unarchive a conversation.
+        
+        Args:
+            discord_user_id: Discord user ID (optional)
+            discord_channel_id: Discord channel ID (optional)
+            archive: True to archive, False to unarchive
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        with session_scope() as session:
+            conversation = self._get_conversation(session, discord_user_id, discord_channel_id)
+            if not conversation:
+                return False
+                
+            conversation.is_archived = archive
+            return True
+            
+    def get_user_conversations(self, discord_user_id: int, include_archived: bool = False) -> List[Dict[str, Any]]:
+        """
+        Get all conversations for a user.
+        
+        Args:
+            discord_user_id: Discord user ID
+            include_archived: Whether to include archived conversations
+            
+        Returns:
+            List of conversation summaries
+        """
+        with session_scope() as session:
+            # Get user
+            user = session.query(User).filter_by(discord_id=discord_user_id).first()
+            if not user:
+                return []
+                
+            # Get conversations
+            query = session.query(Conversation).filter_by(user_id=user.id)
+            if not include_archived:
+                query = query.filter_by(is_archived=False)
+                
+            conversations = query.order_by(Conversation.updated_at.desc()).all()
+            
+            # Format for display
+            return [
+                {
+                    "id": conv.id,
+                    "title": conv.title or f"Conversation {conv.id}",
+                    "tags": conv.tags.split(',') if conv.tags else [],
+                    "mood": conv.mood,
+                    "energy_level": conv.energy_level,
+                    "is_archived": conv.is_archived,
+                    "message_count": len(conv.messages),
+                    "updated_at": conv.updated_at.isoformat(),
+                    "created_at": conv.created_at.isoformat()
+                }
+                for conv in conversations
+            ]
+            
+    def _get_conversation(self, session, discord_user_id: int = None, discord_channel_id: int = None) -> Optional[Conversation]:
+        """
+        Helper method to get a conversation by user or channel ID.
+        
+        Args:
+            session: Database session
+            discord_user_id: Discord user ID (optional)
+            discord_channel_id: Discord channel ID (optional)
+            
+        Returns:
+            Conversation object or None if not found
+        """
+        if discord_user_id:
+            user = session.query(User).filter_by(discord_id=discord_user_id).first()
+            if not user:
+                return None
+                
+            return session.query(Conversation).filter_by(user_id=user.id).first()
+            
+        elif discord_channel_id:
+            channel = session.query(Channel).filter_by(discord_id=discord_channel_id).first()
+            if not channel:
+                return None
+                
+            return session.query(Conversation).filter_by(channel_id=channel.id).first()
+            
+        return None

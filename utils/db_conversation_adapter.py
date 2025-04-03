@@ -280,3 +280,174 @@ class DBConversationAdapter:
         except Exception as e:
             logger.error(f"Error getting conversation preview from database: {e}")
             return []
+            
+    def set_conversation_title(self, user_id: Optional[int] = None, 
+                             channel_id: Optional[int] = None, title: str = None) -> bool:
+        """
+        Set a title for a conversation.
+        
+        Args:
+            user_id: Discord user ID (optional)
+            channel_id: Discord channel ID (optional)
+            title: Conversation title
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not USE_DATABASE:
+            return True
+            
+        try:
+            return self.db_service.set_conversation_title(user_id, channel_id, title)
+        except Exception as e:
+            logger.error(f"Error setting conversation title in database: {e}")
+            return False
+            
+    def add_conversation_tags(self, user_id: Optional[int] = None, 
+                            channel_id: Optional[int] = None, tags: List[str] = None) -> bool:
+        """
+        Add tags to a conversation.
+        
+        Args:
+            user_id: Discord user ID (optional)
+            channel_id: Discord channel ID (optional)
+            tags: List of tags to add
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not USE_DATABASE or not tags:
+            return True if not tags else False
+            
+        try:
+            return self.db_service.add_conversation_tags(user_id, channel_id, tags)
+        except Exception as e:
+            logger.error(f"Error adding conversation tags in database: {e}")
+            return False
+            
+    def remove_conversation_tags(self, user_id: Optional[int] = None, 
+                               channel_id: Optional[int] = None, tags: List[str] = None) -> bool:
+        """
+        Remove tags from a conversation.
+        
+        Args:
+            user_id: Discord user ID (optional)
+            channel_id: Discord channel ID (optional)
+            tags: List of tags to remove
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not USE_DATABASE or not tags:
+            return True if not tags else False
+            
+        try:
+            return self.db_service.remove_conversation_tags(user_id, channel_id, tags)
+        except Exception as e:
+            logger.error(f"Error removing conversation tags from database: {e}")
+            return False
+            
+    def archive_conversation(self, user_id: Optional[int] = None, 
+                           channel_id: Optional[int] = None, archive: bool = True) -> bool:
+        """
+        Archive or unarchive a conversation.
+        
+        Args:
+            user_id: Discord user ID (optional)
+            channel_id: Discord channel ID (optional)
+            archive: True to archive, False to unarchive
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not USE_DATABASE:
+            return True
+            
+        try:
+            return self.db_service.archive_conversation(user_id, channel_id, archive)
+        except Exception as e:
+            logger.error(f"Error archiving conversation in database: {e}")
+            return False
+            
+    def get_user_conversations(self, user_id: int, include_archived: bool = False) -> List[Dict[str, Any]]:
+        """
+        Get all conversations for a user.
+        
+        Args:
+            user_id: Discord user ID
+            include_archived: Whether to include archived conversations
+            
+        Returns:
+            List of conversation summaries
+        """
+        if not USE_DATABASE:
+            return []
+            
+        try:
+            return self.db_service.get_user_conversations(user_id, include_archived)
+        except Exception as e:
+            logger.error(f"Error getting user conversations from database: {e}")
+            return []
+            
+    def update_user_settings(self, user_id: int, **settings) -> bool:
+        """
+        Update user settings with the provided values.
+        
+        Args:
+            user_id: Discord user ID
+            **settings: Settings to update
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if not USE_DATABASE:
+            return True
+            
+        try:
+            return self.db_service.update_user_settings(user_id, **settings)
+        except Exception as e:
+            logger.error(f"Error updating user settings in database: {e}")
+            return False
+            
+    def get_user_settings(self, user_id: int) -> Dict[str, Any]:
+        """
+        Get user settings.
+        
+        Args:
+            user_id: Discord user ID
+            
+        Returns:
+            Dictionary of user settings (defaults if not found)
+        """
+        if not USE_DATABASE:
+            return {
+                "personality": DEFAULT_PERSONALITY,
+                "max_memory_messages": MAX_CONVERSATION_HISTORY,
+                "memory_expiry_days": CONVERSATION_MEMORY_EXPIRY // (24 * 3600),
+                "default_mood": DEFAULT_MOOD,
+                "auto_title_conversations": True,
+                "dm_conversation_preview": True
+            }
+            
+        try:
+            settings = self.db_service.get_user_settings(user_id)
+            if not settings:
+                return {
+                    "personality": DEFAULT_PERSONALITY,
+                    "max_memory_messages": MAX_CONVERSATION_HISTORY,
+                    "memory_expiry_days": CONVERSATION_MEMORY_EXPIRY // (24 * 3600),
+                    "default_mood": DEFAULT_MOOD,
+                    "auto_title_conversations": True,
+                    "dm_conversation_preview": True
+                }
+            return settings
+        except Exception as e:
+            logger.error(f"Error getting user settings from database: {e}")
+            return {
+                "personality": DEFAULT_PERSONALITY,
+                "max_memory_messages": MAX_CONVERSATION_HISTORY,
+                "memory_expiry_days": CONVERSATION_MEMORY_EXPIRY // (24 * 3600),
+                "default_mood": DEFAULT_MOOD,
+                "auto_title_conversations": True,
+                "dm_conversation_preview": True
+            }
