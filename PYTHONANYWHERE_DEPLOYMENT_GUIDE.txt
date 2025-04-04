@@ -4,7 +4,7 @@ This guide will walk you through deploying your Gemini AI Discord bot on PythonA
 
 ## Step 1: Create a PythonAnywhere Account
 
-1. Go to [PythonAnywhere.com](https://www.pythonanywhere.com/)
+1. Go to PythonAnywhere.com
 2. Click "Sign up" and choose the free "Beginner" account 
 3. Complete the registration process
 
@@ -15,15 +15,15 @@ There are two ways to get your files onto PythonAnywhere:
 ### Option A: Upload a ZIP File (Easiest for Beginners)
 
 1. On your local computer, compress all project files into a ZIP file:
-   - Select all files and folders except `.env` (if you have one)
+   - Select all files and folders except .env (if you have one)
    - Right-click and select "Compress" or "Send to > Compressed (zipped) folder"
-   - Name it something like `gemini-discord-bot.zip`
+   - Name it something like gemini-discord-bot.zip
 
 2. From your PythonAnywhere dashboard, click on "Files"
 
 3. Create a new directory for your project:
    - Click "New directory"
-   - Name it `gemini-discord-bot`
+   - Name it gemini-discord-bot
    - Click "OK"
 
 4. Navigate to your new directory by clicking on it
@@ -35,13 +35,9 @@ There are two ways to get your files onto PythonAnywhere:
 6. Unzip the file:
    - Open a Bash console from your dashboard
    - Navigate to your project directory:
-     ```bash
      cd gemini-discord-bot
-     ```
    - Unzip the files:
-     ```bash
      unzip gemini-discord-bot.zip
-     ```
 
 ### Option B: Upload Files Individually
 
@@ -55,40 +51,28 @@ If your project isn't too large, you can upload files and folders individually:
 
 1. From your PythonAnywhere dashboard, open a Bash console
 2. Navigate to your project directory:
-   ```bash
    cd gemini-discord-bot
-   ```
 3. Create a virtual environment:
-   ```bash
    python3 -m venv venv
-   ```
 4. Activate the virtual environment:
-   ```bash
    source venv/bin/activate
-   ```
 
 ## Step 4: Install Dependencies
 
 1. With your virtual environment activated, install all required packages:
-   ```bash
    pip install discord.py google-generativeai flask python-dotenv flask-sqlalchemy email-validator gunicorn psycopg2-binary trafilatura
-   ```
 
 ## Step 5: Configure Environment Variables
 
-1. Create a `.env` file in your project directory:
-   ```bash
+1. Create a .env file in your project directory:
    nano .env
-   ```
 
 2. Add your necessary environment variables:
-   ```
    DISCORD_TOKEN=your_discord_bot_token
    GEMINI_API_KEY=your_gemini_api_key
    BOT_PREFIX=!
    ENABLE_MENTION_RESPONSES=true
    ENABLE_DIRECT_MESSAGE_RESPONSES=true
-   ```
 
 3. Save and exit (CTRL+X, then Y, then ENTER)
 
@@ -101,18 +85,16 @@ Since the free tier doesn't have "Always-on tasks", we'll use a scheduled task t
 1. From your PythonAnywhere dashboard, click on "Schedule"
 
 2. Add a new scheduled task with the following settings:
-   - **Time**: Choose a time (it doesn't matter much since we'll be running it frequently)
-   - **Command**: 
-     ```
+   - Time: Choose a time (it doesn't matter much since we'll be running it frequently)
+   - Command: 
      cd /home/yourusername/gemini-discord-bot && source venv/bin/activate && python pythonanywhere_deployment.py && touch /home/yourusername/gemini-discord-bot/last_run.txt
-     ```
      (Replace "yourusername" with your actual PythonAnywhere username)
-   - **Repeat**: Hourly (you can also configure it to run more frequently with a paid account)
+   - Repeat: Hourly (you can also configure it to run more frequently with a paid account)
 
 3. Add a second scheduled task to make sure the bot is running:
-   - **Time**: Choose a time 30 minutes offset from the first task
-   - **Command**: Same as above
-   - **Repeat**: Hourly
+   - Time: Choose a time 30 minutes offset from the first task
+   - Command: Same as above
+   - Repeat: Hourly
 
 Note: This approach will restart your bot every hour (or at your chosen frequency). This works for most Discord bots, but your conversations might reset periodically.
 
@@ -123,9 +105,7 @@ If you decide to upgrade to a paid account, you can use an "Always-on task" inst
 1. From your PythonAnywhere dashboard, click on "Consoles"
 2. Click on "Add a new console" and select "Always-on task"
 3. Enter the command to run your bot:
-   ```
    cd /home/yourusername/gemini-discord-bot && source venv/bin/activate && python pythonanywhere_deployment.py
-   ```
 
 ## Step 7: Test Your Deployment
 
@@ -134,49 +114,45 @@ If you decide to upgrade to a paid account, you can use an "Always-on task" inst
    - Check if your bot appears online in Discord
 
 2. Test basic commands in Discord:
-   - Try `!help` to see if the bot responds
-   - Test `!ask` with a simple question
+   - Try !help to see if the bot responds
+   - Test !ask with a simple question
    - Try mentioning the bot directly with a question
 
 ## Troubleshooting
 
 If your bot isn't working, check these common issues:
 
-1. **Bot Not Starting**:
-   - View the log file created by the script (`pythonanywhere_discord.log`)
+1. Bot Not Starting:
+   - View the log file created by the script (pythonanywhere_discord.log)
    - Check that your DISCORD_TOKEN and GEMINI_API_KEY are set correctly
 
-2. **Missing Dependencies**:
+2. Missing Dependencies:
    - Make sure all required packages are installed in your virtual environment
    - Try activating your virtual environment and running the script manually to see errors
 
-3. **Permission Issues**:
+3. Permission Issues:
    - Ensure your log files and database files have write permissions
-   - In the Bash console, run `chmod -R 755 .` in your project directory
+   - In the Bash console, run chmod -R 755 . in your project directory
 
-4. **Bot Goes Offline**:
+4. Bot Goes Offline:
    - For free accounts, the bot will restart hourly with your scheduled tasks
    - Consider upgrading to a paid account for an "Always-on task"
 
 ## Important Notes
 
-1. **Free Account Limitations**:
+1. Free Account Limitations:
    - Free accounts may be disabled if inactive for 3 months
    - Log in occasionally to keep your account active
    - The bot will restart periodically with scheduled tasks
 
-2. **Storage Space**:
+2. Storage Space:
    - Your project uses approximately 4.5MB, which is well within the 512MB limit
    - Be careful not to store large files or logs that might exceed your storage limit
 
-3. **Database Considerations**:
+3. Database Considerations:
    - SQLite works fine for most Discord bots on PythonAnywhere
    - The database file will be stored in your project directory
 
-4. **Maintenance**:
+4. Maintenance:
    - Check your logs periodically for any errors
    - Update your code as needed by uploading new versions
-
-## Getting Help
-
-If you run into issues, check the PythonAnywhere forums or Discord support channels. Remember that most problems can be diagnosed by checking log files.
