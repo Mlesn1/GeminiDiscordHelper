@@ -5,10 +5,10 @@ channel = "stable-24_05"
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+run = ["sh", "-c", "python discord_bot_only.py"]
 
 [workflows]
-runButton = "Discord Bot"
+runButton = "Production Bot"
 
 [[workflows.workflow]]
 name = "Project"
@@ -54,6 +54,15 @@ args = "python main.py"
 
 [[workflows.workflow]]
 name = "Discord Bot"
+author = 41126606
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python discord_bot_only.py"
+
+[[workflows.workflow]]
+name = "Production Bot"
 author = 41126606
 mode = "sequential"
 
